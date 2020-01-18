@@ -34,50 +34,58 @@ class Fighter:
     def take_damage(self, damage, attacker):
         print(f'{attacker} attacks {self} for {damage} damage')
         self.health -= damage
-        if(self.health<1):
-            print(f'{self} dies!')
-            self.arena.fighters.remove(self)
+        if(self.health < 1):
+            self.die()
 
+    def die(self):
+        print(f'{self} dies!')
+        self.arena.fighters.remove(self)
+        self.arena = None
 
 class Arena:
     def __init__(self):
         self.fighters = []
         self.turn = 0
+        self.winner = None
 
     def __repr__(self):
-        return f'Arena({len(self.fighters)} fighters, turn {self.turn})'
-
-    def is_battle(self):
-        return len(self.fighters) > 1
+        return f'Arena v{VERSION} ({len(self.fighters)} fighters, turn {self.turn})'
 
     def add_fighter(self, fighter):
         self.fighters.append(fighter)
         fighter.arena = self
-        print(f'{fighter} enters the arena!')
+        print(f'{fighter} enters the arena')
 
     def play_round(self):
         self.turn += 1
-        print(f'Round {self.turn}:')
+        print(f'{self}:')
         for f in self.fighters:
             f.take_turn()
+        self.select_winner()
 
+    def is_battle(self):
+        return self.winner == None
+
+    def select_winner(self):
+        if len(self.fighters) > 1:
+            self.winner = None
+        else:
+            self.winner = self.fighters[0]
 
 class Game:
     def run(self, argv):
-        print('Arena ' + VERSION)
+        print('Welcome to Arena version ' + VERSION)
 
         arena = Arena()
-        arena.add_fighter(Fighter('Bill'))
-        arena.add_fighter(Fighter('Bob'))
         arena.add_fighter(Fighter('Alice'))
-        arena.add_fighter(Fighter('Sara'))
+        arena.add_fighter(Fighter('Bob'))
+        arena.add_fighter(Fighter('Eve'))
 
         while arena.is_battle():
             arena.play_round()
 
-        print(f'{arena.fighters[0]} wins!')
+        print(f'{arena.winner} is the winner!')
         print('Game Over')
-
 
 if __name__ == '__main__':
     Game().run(sys.argv)
