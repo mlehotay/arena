@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 VERSION = '0.1'
+VERBOSE = True
 
 import random
 import sys
@@ -32,7 +33,8 @@ class Fighter:
         opponent.take_damage(damage, self)
 
     def take_damage(self, damage, attacker):
-        print(f'  {attacker} attacks {self} for {damage} damage')
+        if VERBOSE:
+            print(f'  {attacker} attacks {self} for {damage} damage')
         self.health -= damage
         if(self.health < 1):
             self.die()
@@ -41,7 +43,8 @@ class Fighter:
         self.health = self.max_health
 
     def die(self):
-        print(f'  {self} dies!')
+        if VERBOSE:
+            print(f'  {self} dies!')
         self.arena.fighters.remove(self)
         self.arena = None
 
@@ -61,7 +64,6 @@ class Arena:
         self.fighters.append(fighter)
         fighter.arena = self
         fighter.heal()
-        print(f'{fighter} enters the arena')
 
     # bug: Why didn't Eve attack?
     # Arena 0x7f6a7056535 (3 fighters, turn 3):
@@ -70,7 +72,8 @@ class Arena:
     # Alice (-1/4) dies!
     def play_round(self):
         self.turn += 1
-        print(f'{self}:')
+        if VERBOSE:
+            print(f'{self}:')
         for f in self.fighters:
             f.take_turn()
         self.select_winner()
@@ -94,12 +97,31 @@ class Tournament:
 
     def compete(self, num_battles):
         for i in range(0, num_battles):
-            print(f'{self} Battle {i}:')
+            if VERBOSE:
+                print(f'{self} Battle {i}:')
             arena = Arena(self.fighters)
             while arena.is_battle():
                 arena.play_round()
             self.wins[arena.winner] += 1
-            print(f'{arena.winner} wins battle {i}!')
+            if VERBOSE:
+                print(f'{arena.winner} wins battle {i}!')
+
+        most_wins = max([self.wins[f] for f in self.fighters])
+        tiebreaker = [f for f in self.fighters if self.wins[f]==most_wins]
+        if len(tiebreaker)>1:
+            if VERBOSE:
+                print(f'{self} Tiebreaker Battle:')
+            arena = Arena(tiebreaker)
+            while arena.is_battle():
+                arena.play_round()
+            self.wins[arena.winner] += 1
+            if VERBOSE:
+                print(f'{arena.winner} wins the tiebreaker battle!')
+            self.winner = arena.winner
+        else:
+            self.winner = tiebreaker[0]
+        if VERBOSE:
+            print(f'{self.winner} wins the tournament!')
 
     def print_standings(self):
         print('Final Standings:')
@@ -109,7 +131,7 @@ class Tournament:
 
 class Game:
     def run(self, argv):
-        print('Welcome to Arena version ' + VERSION)
+        print('Arena version ' + VERSION)
 
         contestants = [
             Fighter('Alice'),
@@ -118,7 +140,7 @@ class Game:
         ]
 
         t = Tournament(contestants)
-        t.compete(3);
+        t.compete(2);
         t.print_standings()
 
 
