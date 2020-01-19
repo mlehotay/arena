@@ -6,7 +6,7 @@ VERBOSE = False
 import random
 import sys
 
-names = ['Adalee', 'Amos', 'Berit', 'Bergen', 'Cavery', 'Cullan', 'Disa',
+name_list = ['Adalee', 'Amos', 'Berit', 'Bergen', 'Cavery', 'Cullan', 'Disa',
     'Dawson', 'Edeline', 'Elias', 'Fallon', 'Fergus', 'Gemma', 'Garret',
     'Hazel', 'Heath', 'Idelle', 'Ira', 'Jillian', 'Jasper', 'Kaia', 'Keagan',
     'Lark', 'Landry', 'Morrin', 'Miles', 'Nella', 'Nixon', 'Odin', 'Ophelia',
@@ -14,11 +14,18 @@ names = ['Adalee', 'Amos', 'Berit', 'Bergen', 'Cavery', 'Cullan', 'Disa',
     'Soren', 'Taryn', 'Thatcher', 'Umina', 'Uri', 'Vika', 'Vance', 'Wila',
     'Walker', 'Xenia', 'Xander', 'Yates', 'Yumi', 'Zane', 'Zinia']
 
-armoury = {
+weapon_list = {
     None: (1,2,0),    # 1d2
     'sword': (1,8,0), # 1d8
     'mace': (1,6,1),  # 1d6+1
     'dagger': (1,4,0) # 1d4
+}
+
+armor_list = {
+    None: 0,
+    'leather armor': 1,
+    'chain mail': 3,
+    'plate mail': 5
 }
 
 def roll(dice, sides):
@@ -33,6 +40,7 @@ class Fighter:
         self.max_health = roll(2,4)
         self.health = self.max_health
         self.weapon = None
+        self.armor = None
         self.arena = None
         self.team = None
 
@@ -46,11 +54,14 @@ class Fighter:
         self.attack(target)
 
     def attack(self, opponent):
-        (dice, sides, plus) = armoury[self.weapon]
+        (dice, sides, plus) = weapon_list[self.weapon]
         damage = roll(dice, sides) + plus
         opponent.take_damage(damage, self)
 
     def take_damage(self, damage, attacker):
+        protection = armor_list[self.armor]
+        damage = max(0, damage-protection)
+
         if VERBOSE:
             print(f'  {attacker} attacks {self} for {damage} damage')
         self.health -= damage
@@ -94,18 +105,20 @@ class Arena:
             self.winner = self.fighters[0]
 
 class Team:
-    def __init__(self, name, fighter_type, weapon):
+    def __init__(self, name, fighter_type, weapon, armor):
         self.name = name
         self.fighter_type = fighter_type
         self.type_name = fighter_type.__name__
         self.weapon = weapon
+        self.armor = armor
 
     def __repr__(self):
-        return f'{self.name} ({self.type_name}, {self.weapon})'
+        return f'{self.name} ({self.type_name}, {self.weapon}, {self.armor})'
 
     def add_fighter(self, fighter):
         fighter.team = self
         fighter.weapon = self.weapon
+        fighter.armor = self.armor
 
 class Tournament:
     def __init__(self, teams):
@@ -118,8 +131,7 @@ class Tournament:
     def fight_battle(self, title, teams):
         fighters = []
         for team in self.teams:
-            #name = f'{team.type_name}{random.randint(1,99)}'
-            name = random.choice(names)
+            name = random.choice(name_list)
             fighter = team.fighter_type(name)
             team.add_fighter(fighter)
             fighters.append(fighter)
@@ -159,11 +171,11 @@ class Game:
         print('Arena version ' + VERSION)
 
         teams = [
-            Team('Flying Gryphons', Fighter, 'sword'),
-            Team('Mob Riot', ToughFighter, None),
-            Team('Dungeon Explorers', Fighter, None),
-            Team('Pointy Things', Fighter, 'dagger'),
-            Team('Bludgeoners', Fighter, 'mace')
+            Team('Flying Gryphons', Fighter, 'sword', 'chain mail'),
+            Team('Mob Riot', ToughFighter, None, 'leather armor'),
+            Team('Dungeon Explorers', Fighter, None, None),
+            Team('Pointy Things', Fighter, 'dagger', 'leather armor'),
+            Team('Bludgeoners', ToughFighter, 'mace', None)
         ]
 
         t = Tournament(teams)
