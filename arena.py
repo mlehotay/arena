@@ -6,6 +6,21 @@ VERBOSE = False
 import random
 import sys
 
+names = ['Adalee', 'Amos', 'Berit', 'Bergen', 'Cavery', 'Cullan', 'Disa',
+    'Dawson', 'Edeline', 'Elias', 'Fallon', 'Fergus', 'Gemma', 'Garret',
+    'Hazel', 'Heath', 'Idelle', 'Ira', 'Jillian', 'Jasper', 'Kaia', 'Keagan',
+    'Lark', 'Landry', 'Morrin', 'Miles', 'Nella', 'Nixon', 'Odin', 'Ophelia',
+    'Patia', 'Pearce', 'Quinevere', 'Qorbin', 'Rowen', 'Reaves', 'Sabel',
+    'Soren', 'Taryn', 'Thatcher', 'Umina', 'Uri', 'Vika', 'Vance', 'Wila',
+    'Walker', 'Xenia', 'Xander', 'Yates', 'Yumi', 'Zane', 'Zinia']
+
+armoury = {
+    None: (1,2,0),    # 1d2
+    'sword': (1,8,0), # 1d8
+    'mace': (1,6,1),  # 1d6+1
+    'dagger': (1,4,0) # 1d4
+}
+
 def roll(dice, sides):
     total = 0
     for _ in range(0, dice):
@@ -17,11 +32,12 @@ class Fighter:
         self.name = name
         self.max_health = roll(2,4)
         self.health = self.max_health
+        self.weapon = None
         self.arena = None
         self.team = None
 
     def __repr__(self):
-        return f'{self.name} ({self.health}/{self.max_health})'
+        return f'{self.name} ({self.health}/{self.max_health}) [{self.team}]'
 
     def take_turn(self):
         opponents = self.arena.fighters[:]
@@ -30,7 +46,8 @@ class Fighter:
         self.attack(target)
 
     def attack(self, opponent):
-        damage = roll(1,2)
+        (dice, sides, plus) = armoury[self.weapon]
+        damage = roll(dice, sides) + plus
         opponent.take_damage(damage, self)
 
     def take_damage(self, damage, attacker):
@@ -67,17 +84,6 @@ class Arena:
         self.fighters.append(fighter)
         fighter.arena = self
 
-    # bug: Why didn't Eve attack?
-    # Arena 0x7f6a7056535 (3 fighters, turn 3):
-    # Alice (1/4) attacks Eve (2/4) for 1 damage
-    # Bob (5/8) attacks Alice (1/4) for 2 damage
-    # Alice (-1/4) dies!
-
-    # Arena 0x7fa12f13fc5 (3 fighters, turn 3):
-    #   Fighter4 (1/5) attacks Fighter28 (3/4) for 2 damage
-    #   Fighter81 (4/8) attacks Fighter4 (1/5) for 1 damage
-    #   Fighter4 (0/5) dies!
-    # Arena 0x7fa12f13fc5 (2 fighters, turn 4):
     def play_round(self):
         self.turn += 1
         if VERBOSE:
@@ -88,18 +94,18 @@ class Arena:
             self.winner = self.fighters[0]
 
 class Team:
-    def __init__(self, name, fighter_type):
+    def __init__(self, name, fighter_type, weapon):
         self.name = name
         self.fighter_type = fighter_type
         self.type_name = fighter_type.__name__
+        self.weapon = weapon
 
     def __repr__(self):
-        return f'Team {self.name} ({self.type_name})'
+        return f'{self.name} ({self.type_name}, {self.weapon})'
 
     def add_fighter(self, fighter):
-        self.fighters.append(fighter)
         fighter.team = self
-
+        fighter.weapon = self.weapon
 
 class Tournament:
     def __init__(self, teams):
@@ -112,9 +118,10 @@ class Tournament:
     def fight_battle(self, title, teams):
         fighters = []
         for team in self.teams:
-            name = f'{team.type_name}{random.randint(1,99)}'
+            #name = f'{team.type_name}{random.randint(1,99)}'
+            name = random.choice(names)
             fighter = team.fighter_type(name)
-            fighter.team = team
+            team.add_fighter(fighter)
             fighters.append(fighter)
         if VERBOSE:
             print(f'{self} {title}:')
@@ -140,26 +147,27 @@ class Tournament:
             self.winner = winning_teams[0]
 
         if VERBOSE:
-            print(f'{self.winner.name} wins the tournament!')
+            print(f'{self.winner} wins the tournament!')
 
     def print_standings(self):
         print('Final Standings:')
         for team in self.teams:
-            print(f'  {team.name} ({team.type_name}): {self.wins[team]}')
-
+            print(f'  {team}: {self.wins[team]}')
 
 class Game:
     def run(self, argv):
         print('Arena version ' + VERSION)
 
         teams = [
-            Team('Flying Gryphons', Fighter),
-            Team('Mob Riot', ToughFighter),
-            Team('Dungeon Explorers', Fighter),
+            Team('Flying Gryphons', Fighter, 'sword'),
+            Team('Mob Riot', ToughFighter, None),
+            Team('Dungeon Explorers', Fighter, None),
+            Team('Pointy Things', Fighter, 'dagger'),
+            Team('Bludgeoners', Fighter, 'mace')
         ]
 
         t = Tournament(teams)
-        t.compete(2)
+        t.compete(1000)
         t.print_standings()
 
 if __name__ == '__main__':
