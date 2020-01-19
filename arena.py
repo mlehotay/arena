@@ -18,6 +18,7 @@ class Fighter:
         self.max_health = roll(2,4)
         self.health = self.max_health
         self.arena = None
+        self.team = None
 
     def __repr__(self):
         return f'{self.name} ({self.health}/{self.max_health})'
@@ -80,58 +81,86 @@ class Arena:
         if len(self.fighters) == 1:
             self.winner = self.fighters[0]
 
+class Team:
+    def __init__(self, name, fighter_type):
+        self.name = name
+        self.fighter_type = fighter_type
+        self.type_name = fighter_type.__name__
+
+    def __repr__(self):
+        return f'Team {self.name} ({self.type_name})'
+
+    def add_fighter(self, fighter):
+        self.fighters.append(fighter)
+        fighter.team = self
+
+
 class Tournament:
     def __init__(self, teams):
         self.teams = teams
         self.wins = {team:0 for team in teams}
 
     def __repr__(self):
-        return f'Tournament {hex(hash(self))} {[team.__name__ for team in self.teams]}'
+        return f'Tournament {hex(hash(self))} {[team.type_name for team in self.teams]}'
 
     def compete(self, num_battles):
         for i in range(0, num_battles):
             if VERBOSE:
-                print(f'{self} Battle {i}:')
+                print(f'{self} Battle {i+1}:')
             fighters = []
             for team in self.teams:
-                fighters.append(team(f'{team.__name__}{random.randint(1,99)}'))
+                name = f'{team.type_name}{random.randint(1,99)}'
+                fighter = team.fighter_type(name)
+                fighter.team = team
+                fighters.append(fighter)
             arena = Arena(fighters)
             while arena.winner == None:
                 arena.play_round()
-            self.wins[arena.winner.__class__] += 1
+            self.wins[arena.winner.team] += 1
             if VERBOSE:
-                print(f'{arena.winner} wins battle {i}!')
+                print(f'{arena.winner} wins battle {i+1}!')
 
         most_wins = max([self.wins[team] for team in self.teams])
-        champions = [team(f'{team.__name__}{random.randint(1,99)}') for team in self.teams if self.wins[team]==most_wins]
-        if len(champions)>1:
+        winning_teams = [team for team in self.teams if self.wins[team]==most_wins]
+        if len(winning_teams)>1:
             if VERBOSE:
                 print(f'{self} Tiebreaker Battle:')
-            arena = Arena(champions)
+            fighters = []
+            for team in self.teams:
+                name = f'{team.type_name}{random.randint(1,99)}'
+                fighter = team.fighter_type(name)
+                fighter.team = team
+                fighters.append(fighter)
+            arena = Arena(fighters)
             while arena.winner == None:
                 arena.play_round()
-            self.wins[arena.winner.__class__] += 1
+            self.wins[arena.winner.team] += 1
             if VERBOSE:
                 print(f'{arena.winner} wins the tiebreaker battle!')
-            self.winner = arena.winner.__class__
+            self.winner = arena.winner.team
         else:
-            self.winner = champions[0].__class__
+            self.winner = fighters[0].team
 
         if VERBOSE:
-            print(f'Team {self.winner.__name__} wins the tournament!')
+            print(f'{self.winner.name} wins the tournament!')
 
     def print_standings(self):
         print('Final Standings:')
         for team in self.teams:
-            print(f'  {team.__name__}: {self.wins[team]}')
+            print(f'  {team.name} ({team.type_name}): {self.wins[team]}')
 
 
 class Game:
     def run(self, argv):
         print('Arena version ' + VERSION)
 
-        #t = Tournament([ Fighter, Fighter, ToughFighter ])
-        t = Tournament([ Fighter, ToughFighter ])
+        teams = [
+            Team('Team A', ToughFighter),
+            Team('Team B', Fighter),
+            Team('Team C', ToughFighter),
+            Team('Team D', Fighter)
+        ]
+        t = Tournament(teams)
         t.compete(1000)
         t.print_standings()
 
