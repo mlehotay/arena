@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 VERSION = '0.2'
-VERBOSE = True
 
 import random
 import sys
@@ -54,14 +53,14 @@ class Fighter:
         protection = armor_list[self.armor]
         damage = max(0, damage-protection)
 
-        if VERBOSE:
+        if self.battle.verbose:
             print(f'  {attacker.name} attacks {self.name} for {damage} damage')
         self.health -= damage
         if(self.health < 1):
             self.die()
 
     def die(self):
-        if VERBOSE:
+        if self.battle.verbose:
             print(f'  {self.name} dies!')
         self.battle.fighters.remove(self)
         self.battle = None
@@ -73,8 +72,9 @@ class ToughFighter(Fighter):
         self.health = self.max_health
 
 class Battle:
-    def __init__(self, title, roles):
+    def __init__(self, title, roles, verbose):
         self.title = title
+        self.verbose = verbose
         self.fighters = []
         self.winner = None
         self.turn = 0
@@ -90,19 +90,19 @@ class Battle:
         fighter.battle = self
 
     def fight_battle(self):
-        if VERBOSE:
+        if self.verbose:
             print(f'{self.title} fighters:')
             for fighter in self.fighters:
                 print(f'  {fighter}')
         while self.winner == None:
             self.play_round()
-        if VERBOSE:
+        if self.verbose:
             print(f'{self.winner} wins {self.title}!')
         return self.winner
 
     def play_round(self):
         self.turn += 1
-        if VERBOSE:
+        if self.verbose:
             print(f'{self}:')
         for f in self.fighters:
             f.take_turn()
@@ -120,7 +120,7 @@ class Arena:
 
     def simulate_battle(self):
         for i in range(0, self.iterations):
-            winner = Battle(f'Battle {i+1}', self.roles).fight_battle()
+            winner = Battle(f'Battle {i+1}', self.roles, self.verbose).fight_battle()
             self.wins[winner] += 1
 
     def print_probabilities(self):
@@ -143,7 +143,7 @@ class Game:
                 'class':ToughFighter, 'weapon':'mace', 'armor':'leather armor'}
         ]
 
-        battle = Arena(roles, iterations=2)
+        battle = Arena(roles, iterations=2, verbose=True)
         battle.simulate_battle()
         battle.print_probabilities()
 
