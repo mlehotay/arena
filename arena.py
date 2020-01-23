@@ -1,9 +1,6 @@
-#!/usr/bin/env python
-
-VERSION = '0.2'
+VERSION = '0.3'
 
 import random
-import sys
 
 weapon_list = {
     None: (1,2,0),  # 1d2
@@ -141,18 +138,18 @@ class Arena:
 
     def print_probabilities(self):
         print('Estimated Probabilities of Victory:')
-        for faction in self.factions:
+        for faction in sorted(self.factions):
             print(f'{faction}: {self.wins[faction]/self.iterations}')
 
 class Game:
-    def run(self, argv):
+    def run(self):
         print('Arena version ' + VERSION)
 
         roles = [
             {'name': 'Alice', 'faction': 'Order', 'level': 1,
                 'class':Fighter, 'weapon':'long sword', 'armor':'chain mail'},
             {'name': 'Bob', 'faction': 'Order', 'level': 2,
-                'class':Fighter, 'weapon':None, 'armor':'leather armor'},
+                'class':Fighter, 'weapon':'two-handed sword', 'armor':'leather armor'},
             {'name': 'Eve', 'faction': 'Chaos', 'level': 1,
                 'class':Fighter, 'weapon':'flail', 'armor':'shield'},
             {'name': 'Mallory', 'faction': 'Chaos', 'level': 2,
@@ -163,5 +160,6 @@ class Game:
         battle.simulate_battle()
         battle.print_probabilities()
 
-if __name__ == '__main__':
-    Game().run(sys.argv)
+#############################################################################
+# start here
+Game().run()
