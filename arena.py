@@ -52,11 +52,13 @@ class Buff:
         if self.remaining_cooldown == 0:
             self.remaining_duration = self.duration
             self.remaining_cooldown = self.cooldown
+            self.effect(fighter, apply=True)
 
     def tick(self, fighter):
         if self.remaining_duration > 0:
             self.remaining_duration -= 1
-            self.effect(fighter)
+            if self.remaining_duration == 0:
+                self.effect(fighter, apply=False)
         elif self.remaining_cooldown > 0:
             self.remaining_cooldown -= 1
 
@@ -98,6 +100,10 @@ class Fighter:
         self.battle = None
         self.ai = ai
         self.buffs = []
+        self.attack_bonus = 0
+        self.extra_attacks = 0
+        self.poison_damage = 0
+        self.critical_chance = 0
 
     def __repr__(self):
         return f'{self.name} ({self.health}/{self.max_health}) [Level {self.level} {self.__class__.__name__}, {self.weapon}, {self.armor}, {self.faction}]'
@@ -108,9 +114,9 @@ class Fighter:
         self.ai.take_turn(self)
 
     def attack(self, opponent):
-        if roll(1, 20) >= (22 - opponent.armor_class - self.level):
+        if roll(1, 20) + self.attack_bonus >= (22 - opponent.armor_class - self.level):
             (dice, sides, plus) = weapon_list[self.weapon]
-            damage = roll(dice, sides) + plus
+            damage = roll(dice, sides) + plus + self.poison_damage
             opponent.take_damage(damage, self)
         elif self.battle.verbose:
             print(f'  {self.name} swings at {opponent.name} and misses')
@@ -129,16 +135,38 @@ class Fighter:
         self.battle = None
 
     def take_defensive_action(self):
-        defense_buff = Buff(
-            name='Defensive Stance',
-            effect=lambda fighter: setattr(fighter, 'armor_class', fighter.base_armor_class + 2),
-            duration=1,
-            cooldown=3
-        )
-        defense_buff.apply(self)
-        self.buffs.append(defense_buff)
+        if self.armor == 'shield' and all(buff.remaining_cooldown == 0 for buff in self.buffs if buff.name == 'Shield Wall'):
+            self.apply_buff(shield_wall)
+        else:
+            self.apply_buff(defensive_stance)
+
+    def apply_buff(self, buff):
+        buff.apply(self)
+        self.buffs.append(buff)
         if self.battle.verbose:
-            print(f'{self.name} takes a defensive action! AC is now {self.armor_class}')
+            print(f'{self.name} gains buff: {buff.name}')
+
+# Define a generic buff effect function
+
+def generic_buff_effect(attribute, value):
+    def effect(fighter, apply):
+        if apply:
+            setattr(fighter, attribute, getattr(fighter, attribute) + value)
+        else:
+            setattr(fighter, attribute, getattr(fighter, attribute) - value)
+    return effect
+
+# Define specific buffs using the generic buff effect function
+
+defensive_stance = Buff('Defensive Stance', generic_buff_effect('armor_class', 2), duration=1, cooldown=3)
+shield_wall = Buff('Shield Wall', generic_buff_effect('armor_class', 4), duration=1, cooldown=4)
+berserk_rage = Buff('Berserk Rage', generic_buff_effect('attack_bonus', 2), duration=3, cooldown=5)
+speed_boost = Buff('Speed Boost', generic_buff_effect('extra_attacks', 1), duration=2, cooldown=4)
+poison_weapon = Buff('Poison Weapon', generic_buff_effect('poison_damage', 2), duration=3, cooldown=6)
+fortify = Buff('Fortify', generic_buff_effect('max_health', 5), duration=4, cooldown=8)
+
+# Special buff for healing over time
+heal_over_time = Buff('Heal Over Time', lambda fighter, apply: setattr(fighter, 'health', min(fighter.max_health, fighter.health + 2) if apply else fighter.health), duration=3, cooldown=5)
 
 class Battle:
     def __init__(self, title, roles, verbose):
@@ -195,7 +223,7 @@ class Arena:
     def print_probabilities(self):
         print('Estimated Probabilities of Victory:')
         for faction in sorted(self.factions):
-            print(f'{faction}: {self.wins[faction] / self.iterations}')
+            print(f'{faction}: {self.wins[faction] / self.iterations:.2%}')
 
 class Game:
     def run(self):
