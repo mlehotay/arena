@@ -79,11 +79,20 @@ class LowestHealthAttackAI:
             fighter.attack(target)
 
 class DefensiveAI:
+    deadlock_threshold = 5  # Number of turns to wait before breaking deadlock
+    deadlock_counter = 0
+
     @staticmethod
     def take_turn(fighter):
         if fighter.health < fighter.max_health / 4:
-            fighter.take_defensive_action()
+            DefensiveAI.deadlock_counter += 1
+            if DefensiveAI.deadlock_counter >= DefensiveAI.deadlock_threshold:
+                DefensiveAI.deadlock_counter = 0  # Reset counter and force attack
+                LowestHealthAttackAI.take_turn(fighter)
+            else:
+                fighter.take_defensive_action()
         else:
+            DefensiveAI.deadlock_counter = 0  # Reset counter if not in defensive action
             LowestHealthAttackAI.take_turn(fighter)
 
 class Fighter:
@@ -102,7 +111,7 @@ class Fighter:
         self.buffs = []
         self.attack_bonus = 0
         self.extra_attacks = 0
-        self.poison_damage = 0
+        self.damage_bonus = 0
         self.critical_chance = 0
 
     def __repr__(self):
@@ -114,23 +123,24 @@ class Fighter:
         self.ai.take_turn(self)
 
     def attack(self, opponent):
-        if roll(1, 20) + self.attack_bonus >= (22 - opponent.armor_class - self.level):
+        attack_roll = roll(1, 20) + self.attack_bonus
+        target_ac = 22 - opponent.armor_class - self.level
+        if attack_roll >= target_ac:
             (dice, sides, plus) = weapon_list[self.weapon]
-            damage = roll(dice, sides) + plus + self.poison_damage
+            damage = roll(dice, sides) + plus + self.damage_bonus
+            self.battle.log(f'{self.name} hits {opponent.name} for {damage} damage!')
             opponent.take_damage(damage, self)
-        elif self.battle.verbose:
-            print(f'  {self.name} swings at {opponent.name} and misses')
+        else:
+            self.battle.log(f'{self.name} misses {opponent.name}')
 
     def take_damage(self, damage, attacker):
-        if self.battle.verbose:
-            print(f'  {attacker.name} attacks {self.name} for {damage} damage')
+        self.battle.log(f'{attacker.name} attacks {self.name} for {damage} damage')
         self.health -= damage
         if self.health < 1:
             self.die()
 
     def die(self):
-        if self.battle.verbose:
-            print(f'  {self.name} dies!')
+        self.battle.log(f'{self.name} dies!')
         self.battle.fighters.remove(self)
         self.battle = None
 
@@ -143,8 +153,7 @@ class Fighter:
     def apply_buff(self, buff):
         buff.apply(self)
         self.buffs.append(buff)
-        if self.battle.verbose:
-            print(f'{self.name} gains buff: {buff.name}')
+        self.battle.log(f'{self.name} gains buff: {buff.name}')
 
 # Define a generic buff effect function
 
@@ -162,7 +171,7 @@ defensive_stance = Buff('Defensive Stance', generic_buff_effect('armor_class', 2
 shield_wall = Buff('Shield Wall', generic_buff_effect('armor_class', 4), duration=1, cooldown=4)
 berserk_rage = Buff('Berserk Rage', generic_buff_effect('attack_bonus', 2), duration=3, cooldown=5)
 speed_boost = Buff('Speed Boost', generic_buff_effect('extra_attacks', 1), duration=2, cooldown=4)
-poison_weapon = Buff('Poison Weapon', generic_buff_effect('poison_damage', 2), duration=3, cooldown=6)
+poison_weapon = Buff('Poison Weapon', generic_buff_effect('damage_bonus', 2), duration=3, cooldown=6)
 fortify = Buff('Fortify', generic_buff_effect('max_health', 5), duration=4, cooldown=8)
 
 # Special buff for healing over time
@@ -206,6 +215,10 @@ class Battle:
         if len({f.faction for f in self.fighters}) == 1:
             self.winner = self.fighters[0].faction
 
+    def log(self, message):
+        if self.verbose:
+            print(message)
+
 class Arena:
     def __init__(self, roles, iterations=1000, verbose=False):
         self.roles = roles
@@ -230,13 +243,18 @@ class Game:
         print('Arena version ' + VERSION)
 
         roles = [
-            {'name': 'Alice', 'faction': 'Order', 'level': 1, 'class': Fighter, 'weapon': 'long sword', 'armor': 'chain mail', 'ai': RandomAttackAI},
-            {'name': 'Bob', 'faction': 'Order', 'level': 2, 'class': Fighter, 'weapon': 'two-handed sword', 'armor': 'leather armor', 'ai': LowestHealthAttackAI},
-            {'name': 'Eve', 'faction': 'Chaos', 'level': 1, 'class': Fighter, 'weapon': 'flail', 'armor': 'shield', 'ai': DefensiveAI},
-            {'name': 'Mallory', 'faction': 'Chaos', 'level': 2, 'class': Fighter, 'weapon': 'mace', 'armor': 'leather armor', 'ai': RandomAttackAI}
+            #{'name': 'Alice', 'faction': 'Order', 'level': 5, 'class': Fighter, 'weapon': 'long sword', 'armor': 'chain mail', 'ai': RandomAttackAI},
+            #{'name': 'Bob', 'faction': 'Order', 'level': 4, 'class': Fighter, 'weapon': 'two-handed sword', 'armor': 'leather armor', 'ai': LowestHealthAttackAI},
+            #{'name': 'Eve', 'faction': 'Chaos', 'level': 5, 'class': Fighter, 'weapon': 'flail', 'armor': 'shield', 'ai': LowestHealthAttackAI},
+            #{'name': 'Mallory', 'faction': 'Chaos', 'level': 3, 'class': Fighter, 'weapon': 'mace', 'armor': 'banded mail', 'ai': RandomAttackAI},
+            #{'name': 'Carol', 'faction': 'Otters', 'level': 4, 'class': Fighter, 'weapon': 'long sword', 'armor': 'chain mail', 'ai': RandomAttackAI},
+            #{'name': 'Dave', 'faction': 'Otters', 'level': 4, 'class': Fighter, 'weapon': 'short sword', 'armor': 'scale mail', 'ai': LowestHealthAttackAI},
+            #{'name': 'Frank', 'faction': 'Team Frank', 'level': 4, 'class': Fighter, 'weapon': 'broad sword', 'armor': 'splint mail', 'ai': DefensiveAI}
+            {'name': 'Alice', 'faction': 'Red', 'level': 3, 'class': Fighter, 'weapon': 'long sword', 'armor': 'chain mail', 'ai': RandomAttackAI},
+            {'name': 'Bob', 'faction': 'Blue', 'level': 3, 'class': Fighter, 'weapon': 'two-handed sword', 'armor': 'leather armor', 'ai': LowestHealthAttackAI},
         ]
 
-        battle = Arena(roles, iterations=1000, verbose=False)
+        battle = Arena(roles, iterations=1, verbose=True)
         battle.simulate_battle()
         battle.print_probabilities()
 
