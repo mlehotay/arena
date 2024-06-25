@@ -29,11 +29,11 @@ class TestFighter(unittest.TestCase):
         self.assertEqual(self.fighter3.armor_class, 6)  # padded armor (2) + large shield (2)
         self.assertEqual(self.fighter4.armor_class, 4)  # banded mail (6)
 
-    def test_average_damage(self):
-        self.assertAlmostEqual(self.fighter1.average_damage(), 4.5)  # long sword 1d8
-        self.assertAlmostEqual(self.fighter2.average_damage(), 5.5)  # two-handed sword 1d10
-        self.assertAlmostEqual(self.fighter3.average_damage(), 4.5)  # flail 1d6+1
-        self.assertAlmostEqual(self.fighter4.average_damage(), 4.5)  # mace 1d6+1
+    def test_calculate_threat(self):
+        self.assertAlmostEqual(GreatestThreatAI.calculate_threat(self.fighter1), 4.5)  # long sword 1d8
+        self.assertAlmostEqual(GreatestThreatAI.calculate_threat(self.fighter2), 5.5)  # two-handed sword 1d10
+        self.assertAlmostEqual(GreatestThreatAI.calculate_threat(self.fighter3), 4.5)  # flail 1d6+1
+        self.assertAlmostEqual(GreatestThreatAI.calculate_threat(self.fighter4), 4.5)  # mace 1d6+1
 
     def test_take_damage(self):
         self.fighter1.take_damage(5, self.fighter2)

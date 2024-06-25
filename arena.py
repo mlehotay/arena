@@ -93,8 +93,16 @@ class GreatestThreatAI(AI):
     def take_turn(fighter):
         opponents = [f for f in fighter.battle.fighters if f.faction != fighter.faction]
         if opponents:
-            target = max(opponents, key=lambda x: x.average_damage())
+            target = max(opponents, key=lambda x: GreatestThreatAI.calculate_threat(x))
             fighter.attack(target)
+
+    @staticmethod
+    def calculate_threat(opponent):
+        if opponent.weapon in weapon_list:
+            dice, sides, plus = weapon_list[opponent.weapon]
+            average_roll = dice * (1 + sides) / 2
+            return average_roll + plus + opponent.damage_bonus
+        return 0
 
 class DefensiveAI(AI):
     deadlock_threshold = 5  # Number of turns to wait before breaking deadlock
@@ -116,9 +124,6 @@ class DefensiveAI(AI):
 class Fighter:
     def __init__(self, name, level, faction, weapon, armor, ai, shield=None):
         self.name = name
-
-
-        
         self.level = level
         self.max_health = sum(roll(1, 10) for _ in range(level))
         self.health = self.max_health
@@ -150,13 +155,13 @@ class Fighter:
         if attack_roll >= target_ac:
             (dice, sides, plus) = weapon_list[self.weapon]
             damage = roll(dice, sides) + plus + self.damage_bonus
-            self.battle.log(f'{self.name} hits {opponent.name} for {damage} damage!')
+            # self.battle.log(f'{self.name} hits {opponent.name} for {damage} damage!')
             opponent.take_damage(damage, self)
         else:
             self.battle.log(f'{self.name} misses {opponent.name}')
 
     def take_damage(self, damage, attacker):
-        self.battle.log(f'{attacker.name} attacks {self.name} for {damage} damage')
+        self.battle.log(f'{attacker.name} attacks {self.name} for {damage} damage!')
         self.health -= damage
         if self.health < 1:
             self.die()
@@ -181,13 +186,6 @@ class Fighter:
         buff.apply(self)
         self.buffs.append(buff)
         self.battle.log(f'{self.name} gains buff: {buff.name}')
-
-    def average_damage(self):
-        if self.weapon in weapon_list:
-            dice, sides, plus = weapon_list[self.weapon]
-            average_roll = dice * (1 + sides) / 2
-            return average_roll + plus + self.damage_bonus
-        return 0
 
 # Define a generic buff effect function
 def generic_buff_effect(attribute, value):
