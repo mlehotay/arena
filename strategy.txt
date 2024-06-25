@@ -1,0 +1,88 @@
+function makeCombatDecision(playerCharacter, meleeOpponent, rangedOpponent):
+    // Initialize variables to keep track of best actions
+    bestAction = null
+    bestExpectedSurvival = -infinity
+
+    // Evaluate the expected survival turns against melee and ranged opponents
+    expectedSurvivalAgainstMelee = evaluateExpectedSurvival(playerCharacter, meleeOpponent)
+    expectedSurvivalAgainstRanged = evaluateExpectedSurvival(playerCharacter, rangedOpponent)
+
+    // Assess which opponent poses the greater immediate threat based on survival turns
+    if expectedSurvivalAgainstMelee > expectedSurvivalAgainstRanged:
+        // Melee opponent is more threatening
+        bestAction = engageMelee(playerCharacter, meleeOpponent)
+    else:
+        // Ranged opponent is equally or more threatening
+        bestAction = engageRanged(playerCharacter, rangedOpponent)
+
+    // Return the best action to take
+    return bestAction
+
+function evaluateExpectedSurvival(playerCharacter, opponent):
+    // Evaluate how many turns the player character is expected to survive against a specific opponent
+    // This could involve calculating damage per turn, healing effects, defensive buffs, etc.
+    // For simplicity, assume a basic calculation:
+    if opponent.type == "melee" and !isWithinMeleeRange(playerCharacter, opponent):
+        // If opponent is melee and not within melee range yet, assume survival until melee range is reached
+        turnsToSurvive = estimateTurnsToReachMeleeRange(playerCharacter, opponent)
+    else:
+        // Calculate turns to survive based on current state
+        turnsToSurvive = calculateTurnsToSurvive(playerCharacter, opponent)
+
+    return turnsToSurvive
+
+function estimateTurnsToReachMeleeRange(playerCharacter, meleeOpponent):
+    // Estimate how many turns it will take for the melee opponent to reach melee range
+    // This could involve predicting movement speed, obstacles, etc.
+    // For simplicity, assume a basic estimation:
+    turnsToReachMeleeRange = distanceToMeleeRange(playerCharacter, meleeOpponent) / meleeOpponent.movementSpeed
+
+    return turnsToReachMeleeRange
+
+function distanceToMeleeRange(playerCharacter, meleeOpponent):
+    // Calculate the distance between the player character and the melee opponent
+    // For simplicity, this could be a direct distance calculation based on positions
+    distance = calculateDistance(playerCharacter.position, meleeOpponent.position)
+
+    return distance
+
+function calculateTurnsToSurvive(playerCharacter, opponent):
+    // Calculate the expected number of turns the player character can survive against an opponent
+    // This can be based on factors such as current health, opponent's damage output, player character's defenses, healing abilities, etc.
+    // For example:
+    turnsToSurvive = playerCharacter.currentHealth / calculateDamagePerTurn(opponent, playerCharacter)
+
+    return turnsToSurvive
+
+function calculateDamagePerTurn(opponent, playerCharacter):
+    // Calculate the average damage per turn that the opponent inflicts on the player character
+    // This can consider factors like opponent's attack power, player character's defenses, resistances, etc.
+    // For simplicity, a basic calculation:
+    if opponent.type == "melee" and !isWithinMeleeRange(playerCharacter, opponent):
+        // If opponent is melee and not within melee range yet, assume no damage until melee range is reached
+        damagePerTurn = 0
+    else:
+        damagePerTurn = opponent.attackPower - playerCharacter.defense
+
+    return damagePerTurn
+
+function isWithinMeleeRange(playerCharacter, opponent):
+    // Check if the opponent is within melee range of the player character
+    // This could involve comparing distances, depending on game mechanics
+    // For simplicity, a basic check:
+    if calculateDistance(playerCharacter.position, opponent.position) <= playerCharacter.meleeRange:
+        return true
+    else:
+        return false
+
+function engageMelee(playerCharacter, meleeOpponent):
+    // Decide on a melee combat action (e.g., attack, use defensive maneuver, etc.)
+    action = decideMeleeAction(playerCharacter, meleeOpponent)
+    return action
+
+function engageRanged(playerCharacter, rangedOpponent):
+    // Decide on a ranged combat action (e.g., attack, take cover, close distance, etc.)
+    action = decideRangedAction(playerCharacter, rangedOpponent)
+    return action
+
+// Additional utility functions and decision-making logic can be added as needed
