@@ -67,6 +67,37 @@ class Buff:
         elif self.remaining_cooldown > 0:
             self.remaining_cooldown -= 1
 
+# Define a generic buff effect function
+def generic_buff_effect(attribute, value):
+    def effect(fighter, apply):
+        if apply:
+            setattr(fighter, attribute, getattr(fighter, attribute) + value)
+        else:
+            setattr(fighter, attribute, getattr(fighter, attribute) - value)
+    return effect
+
+# Define a dynamic berserk effect function
+def dynamic_berserk_effect(initial_value, decrement):
+    current_value = initial_value
+
+    def effect(fighter, apply):
+        nonlocal current_value
+        if apply:
+            fighter.attack_bonus += current_value
+        else:
+            fighter.attack_bonus -= current_value
+            current_value = max(0, current_value - decrement)
+
+    return effect
+
+# Define specific buffs using the generic buff effect function
+defensive_stance = Buff('Defensive Stance', generic_buff_effect('armor_class', -2), duration=3, cooldown=5)
+shield_wall = Buff('Shield Wall', generic_buff_effect('armor_class', -4), duration=2, cooldown=5)
+berserk_rage = Buff('Berserk Rage', dynamic_berserk_effect(3, 1), duration=5, cooldown=10)
+
+# Special buff for healing over time
+heal_over_time = Buff('Heal Over Time', lambda fighter, apply: setattr(fighter, 'health', min(fighter.max_health, fighter.health + 2) if apply else fighter.health), duration=3, cooldown=5)
+
 class AI:
     @staticmethod
     def take_turn(fighter):
@@ -122,7 +153,7 @@ class DefensiveAI(AI):
             GreatestThreatAI.take_turn(fighter)
 
 class Fighter:
-    def __init__(self, name, level, faction, weapon, armor, ai, shield=None):
+    def __init__(self, name, level, ai, faction, weapon=None, armor=None, shield=None):
         self.name = name
         self.level = level
         self.max_health = sum(roll(1, 10) for _ in range(level))
@@ -142,7 +173,7 @@ class Fighter:
 
     def __repr__(self):
         ai_name = self.ai.__name__ if hasattr(self.ai, '__name__') else str(self.ai)
-        return f'{self.name} ({self.health}/{self.max_health}) [Level {self.level} {self.__class__.__name__}, {self.weapon}, {self.armor}, {ai_name}, {self.faction}]'
+        return f'{self.name} ({self.health}/{self.max_health}) [Level {self.level} {self.__class__.__name__},  {ai_name}, {self.weapon}, {self.armor}, {self.faction}]'
 
     def take_turn(self):
         for buff in self.buffs:
@@ -177,32 +208,26 @@ class Fighter:
         self.battle = None
 
     def take_defensive_action(self):
-        if self.shield and all(buff.remaining_cooldown == 0 for buff in self.buffs if buff.name == 'Shield Wall'):
+        # Check if the 'Shield Wall' buff is already active or on cooldown
+        shield_wall_buff_active = any(buff.name == 'Shield Wall' and buff.remaining_cooldown == 0 for buff in self.buffs)
+        if self.shield and not shield_wall_buff_active:
             self.apply_buff(shield_wall)
         else:
-            self.apply_buff(defensive_stance)
+            # Only apply 'Defensive Stance' if it is not already active
+            defensive_stance_buff_active = any(buff.name == 'Defensive Stance' and buff.remaining_cooldown == 0 for buff in self.buffs)
+            if not defensive_stance_buff_active:
+                self.apply_buff(defensive_stance)
+
 
     def apply_buff(self, buff):
+        # Check if the buff is already applied or in cooldown
+        for active_buff in self.buffs:
+            if active_buff.name == buff.name and active_buff.remaining_cooldown > 0:
+                self.battle.log(f'{self.name} already has buff: {buff.name}')
+                return
         buff.apply(self)
         self.buffs.append(buff)
         self.battle.log(f'{self.name} gains buff: {buff.name}')
-
-# Define a generic buff effect function
-def generic_buff_effect(attribute, value):
-    def effect(fighter, apply):
-        if apply:
-            setattr(fighter, attribute, getattr(fighter, attribute) + value)
-        else:
-            setattr(fighter, attribute, getattr(fighter, attribute) - value)
-    return effect
-
-# Define specific buffs using the generic buff effect function
-defensive_stance = Buff('Defensive Stance', generic_buff_effect('armor_class', -2), duration=3, cooldown=5)
-shield_wall = Buff('Shield Wall', generic_buff_effect('armor_class', -4), duration=2, cooldown=5)
-berserk_rage = Buff('Berserk Rage', generic_buff_effect('attack_bonus', 3), duration=5, cooldown=10)
-
-# Special buff for healing over time
-heal_over_time = Buff('Heal Over Time', lambda fighter, apply: setattr(fighter, 'health', min(fighter.max_health, fighter.health + 2) if apply else fighter.health), duration=3, cooldown=5)
 
 class Battle:
     def __init__(self, title, roles, verbose):
@@ -212,7 +237,7 @@ class Battle:
         self.winner = None
         self.turn = 0
         for role in roles:
-            fighter = role['class'](role['name'], role['level'], role['faction'], role['weapon'], role['armor'], role['ai'])
+            fighter = role['class'](role['name'], role['level'], role['ai'], role['faction'], role['weapon'], role['armor'], role['shield'])
             self.add_fighter(fighter)
 
     def __repr__(self):
@@ -270,18 +295,12 @@ class Game:
         print('Arena version ' + VERSION)
 
         roles = [
-            #{'name': 'Alice', 'faction': 'Order', 'level': 5, 'class': Fighter, 'weapon': 'long sword', 'armor': 'chain mail', 'ai': RandomAttackAI},
-            #{'name': 'Bob', 'faction': 'Order', 'level': 4, 'class': Fighter, 'weapon': 'two-handed sword', 'armor': 'leather armor', 'ai': LowestHealthAI},
-            #{'name': 'Eve', 'faction': 'Chaos', 'level': 5, 'class': Fighter, 'weapon': 'flail', 'armor': 'shield', 'ai': LowestHealthAI},
-            #{'name': 'Mallory', 'faction': 'Chaos', 'level': 3, 'class': Fighter, 'weapon': 'mace', 'armor': 'banded mail', 'ai': RandomAttackAI},
-            #{'name': 'Carol', 'faction': 'Otters', 'level': 4, 'class': Fighter, 'weapon': 'long sword', 'armor': 'chain mail', 'ai': RandomAttackAI},
-            #{'name': 'Dave', 'faction': 'Otters', 'level': 4, 'class': Fighter, 'weapon': 'short sword', 'armor': 'scale mail', 'ai': LowestHealthAI},
-            #{'name': 'Frank', 'faction': 'Team Frank', 'level': 4, 'class': Fighter, 'weapon': 'broad sword', 'armor': 'splint mail', 'ai': DefensiveAI}
-            {'name': 'Glenda', 'faction': 'Red', 'level': 3, 'class': Fighter, 'weapon': 'long sword', 'armor': 'chain mail', 'ai': RandomAttackAI},
-            {'name': 'Hiro', 'faction': 'Blue', 'level': 3, 'class': Fighter, 'weapon': 'two-handed sword', 'armor': 'leather armor', 'ai': LowestHealthAI},
+            {'name': 'Glenda', 'faction': 'Red', 'level': 6, 'class': Fighter, 'weapon': 'long sword', 'armor': 'chain mail', 'shield': None, 'ai': GreatestThreatAI},
+            {'name': 'Hiro', 'faction': 'Blue', 'level': 3, 'class': Fighter, 'weapon': 'two-handed sword', 'armor': 'leather armor', 'shield': None, 'ai': LowestHealthAI},
+            {'name': 'Alice', 'faction': 'Blue', 'level': 4, 'class': Fighter, 'weapon': 'trident', 'armor': 'ring mail', 'shield': 'small shield', 'ai': DefensiveAI},
         ]
 
-        battle = Arena(roles, iterations=1, verbose=True)
+        battle = Arena(roles, iterations=1000, verbose=False)
         battle.simulate_battle()
         battle.print_probabilities()
 

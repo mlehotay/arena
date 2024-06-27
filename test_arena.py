@@ -1,15 +1,15 @@
 import unittest
 import random
 
-from arena import Fighter, Battle, RandomAttackAI, GreatestThreatAI, LowestHealthAI, weapon_list, armor_list, shield_list
+from arena import Fighter, Battle, RandomAttackAI, GreatestThreatAI, LowestHealthAI, DefensiveAI, weapon_list, armor_list, shield_list
 
 class TestFighter(unittest.TestCase):
 
     def setUp(self):
-        self.fighter1 = Fighter('Alice', 5, 'Order', 'long sword', 'chain mail', RandomAttackAI, 'small shield')
-        self.fighter2 = Fighter('Bob', 4, 'Order', 'two-handed sword', 'leather armor', GreatestThreatAI)
-        self.fighter3 = Fighter('Eve', 5, 'Chaos', 'flail', 'padded armor', LowestHealthAI, 'large shield')
-        self.fighter4 = Fighter('Mallory', 3, 'Chaos', 'mace', 'banded mail', RandomAttackAI)
+        self.fighter1 = Fighter('Alice', 5, 'Order', RandomAttackAI, 'long sword', 'chain mail', 'small shield')
+        self.fighter2 = Fighter('Bob', 4, 'Order', GreatestThreatAI, 'two-handed sword', 'leather armor')
+        self.fighter3 = Fighter('Eve', 5, 'Chaos', LowestHealthAI, 'flail', 'padded armor', 'large shield')
+        self.fighter4 = Fighter('Mallory', 3, 'Chaos', RandomAttackAI, 'mace', 'banded mail', )
 
         self.battle = Battle('Test Battle', [], verbose=False)
         self.battle.add_fighter(self.fighter1)
@@ -54,10 +54,10 @@ class TestBattle(unittest.TestCase):
 
     def setUp(self):
         roles = [
-            {'name': 'Alice', 'faction': 'Order', 'level': 5, 'class': Fighter, 'weapon': 'long sword', 'armor': 'chain mail', 'ai': RandomAttackAI, 'shield': 'small shield'},
-            {'name': 'Bob', 'faction': 'Order', 'level': 4, 'class': Fighter, 'weapon': 'two-handed sword', 'armor': 'leather armor', 'ai': GreatestThreatAI},
-            {'name': 'Eve', 'faction': 'Chaos', 'level': 5, 'class': Fighter, 'weapon': 'flail', 'armor': 'padded armor', 'ai': LowestHealthAI, 'shield': 'large shield'},
-            {'name': 'Mallory', 'faction': 'Chaos', 'level': 3, 'class': Fighter, 'weapon': 'mace', 'armor': 'banded mail', 'ai': RandomAttackAI}
+            {'name': 'Alice', 'faction': 'Order', 'level': 5, 'class': Fighter, 'ai': RandomAttackAI, 'weapon': 'long sword', 'armor': 'chain mail', 'shield': 'small shield'},
+            {'name': 'Bob', 'faction': 'Order', 'level': 4, 'class': Fighter, 'ai': GreatestThreatAI, 'weapon': 'two-handed sword', 'armor': 'leather armor', 'shield': None},
+            {'name': 'Eve', 'faction': 'Chaos', 'level': 5, 'class': Fighter, 'ai': LowestHealthAI, 'weapon': 'flail', 'armor': 'padded armor', 'shield': 'large shield'},
+            {'name': 'Mallory', 'faction': 'Chaos', 'level': 3, 'class': Fighter, 'ai': RandomAttackAI, 'weapon': 'mace', 'armor': 'banded mail', 'shield': None}
         ]
         self.battle = Battle('Test Battle', roles, verbose=False)
         for fighter in self.battle.fighters:
@@ -79,10 +79,10 @@ class TestAI(unittest.TestCase):
 
     def setUp(self):
         roles = [
-            {'name': 'Alice', 'faction': 'Order', 'level': 5, 'class': Fighter, 'weapon': 'long sword', 'armor': 'chain mail', 'ai': RandomAttackAI, 'shield': 'small shield'},
-            {'name': 'Bob', 'faction': 'Order', 'level': 4, 'class': Fighter, 'weapon': 'two-handed sword', 'armor': 'leather armor', 'ai': GreatestThreatAI},
-            {'name': 'Eve', 'faction': 'Chaos', 'level': 5, 'class': Fighter, 'weapon': 'flail', 'armor': 'padded armor', 'ai': LowestHealthAI, 'shield': 'large shield'},
-            {'name': 'Mallory', 'faction': 'Chaos', 'level': 3, 'class': Fighter, 'weapon': 'mace', 'armor': 'banded mail', 'ai': RandomAttackAI}
+            {'name': 'Alice', 'faction': 'Order', 'level': 5, 'class': Fighter, 'ai': RandomAttackAI, 'weapon': 'long sword', 'armor': 'chain mail', 'shield': 'small shield'},
+            {'name': 'Bob', 'faction': 'Order', 'level': 4, 'class': Fighter, 'ai': GreatestThreatAI, 'weapon': 'two-handed sword', 'armor': 'leather armor', 'shield': None},
+            {'name': 'Eve', 'faction': 'Chaos', 'level': 5, 'class': Fighter, 'ai': LowestHealthAI, 'weapon': 'flail', 'armor': 'padded armor', 'shield': 'large shield'},
+            {'name': 'Mallory', 'faction': 'Chaos', 'level': 3, 'class': Fighter, 'ai': RandomAttackAI, 'weapon': 'mace', 'armor': 'banded mail', 'shield': None}
         ]
         self.battle = Battle('Test Battle', roles, verbose=False)
         for fighter in self.battle.fighters:
@@ -103,6 +103,12 @@ class TestAI(unittest.TestCase):
         pass
 
     def test_defensive_ai(self):
+        pass
+
+class TestBuff(unittest.TestCase):
+    pass
+
+    def setUp(self):
         pass
 
 if __name__ == '__main__':
