@@ -130,9 +130,9 @@ class GreatestThreatAI(AI):
     @staticmethod
     def calculate_threat(opponent):
         if opponent.weapon in weapon_list:
-            dice, sides, plus = weapon_list[opponent.weapon]
+            dice, sides, addend = weapon_list[opponent.weapon]
             average_roll = dice * (1 + sides) / 2
-            return average_roll + plus + opponent.damage_bonus
+            return average_roll + addend + opponent.damage_bonus
         return 0
 
 class DefensiveAI(AI):
@@ -184,8 +184,8 @@ class Fighter:
         attack_roll = roll(1, 20) + self.attack_bonus
         target_ac = 22 - opponent.armor_class - self.level
         if attack_roll >= target_ac:
-            (dice, sides, plus) = weapon_list[self.weapon]
-            damage = roll(dice, sides) + plus + self.damage_bonus
+            (dice, sides, addend) = weapon_list[self.weapon]
+            damage = roll(dice, sides) + addend + self.damage_bonus
             # self.battle.log(f'{self.name} hits {opponent.name} for {damage} damage!')
             opponent.take_damage(damage, self)
         else:
@@ -236,6 +236,8 @@ class Battle:
         self.fighters = []
         self.winner = None
         self.turn = 0
+        self.logs = []
+
         for role in roles:
             fighter = role['class'](role['name'], role['level'], role['ai'], role['faction'], role['weapon'], role['armor'], role['shield'])
             self.add_fighter(fighter)
@@ -246,6 +248,7 @@ class Battle:
     def add_fighter(self, fighter):
         self.fighters.append(fighter)
         fighter.battle = self
+        self.log(f'{fighter} joins {self}')
 
     def fight_battle(self):
         if self.verbose:
@@ -268,6 +271,7 @@ class Battle:
             self.winner = self.fighters[0].faction
 
     def log(self, message):
+        self.logs.append(message)
         if self.verbose:
             print(message)
 
