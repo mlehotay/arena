@@ -16,18 +16,9 @@ class TestFighter(unittest.TestCase):
         self.battle = Battle('TestFighter Battle', test_roles, verbose=False)
 
     def test_initial_health(self):
-        self.assertGreaterEqual(self.battle.fighters[0].health, 5)
-        self.assertLessEqual(self.battle.fighters[0].health, 50)
-        self.assertGreaterEqual(self.battle.fighters[1].health, 4)
-        self.assertLessEqual(self.battle.fighters[1].health, 40)
-        self.assertGreaterEqual(self.battle.fighters[2].health, 5)
-        self.assertLessEqual(self.battle.fighters[2].health, 50)
-        self.assertGreaterEqual(self.battle.fighters[3].health, 3)
-        self.assertLessEqual(self.battle.fighters[3].health, 30)
-        self.assertGreaterEqual(self.battle.fighters[4].health, 3)
-        self.assertLessEqual(self.battle.fighters[4].health, 30)
-        self.assertGreaterEqual(self.battle.fighters[5].health, 3)
-        self.assertLessEqual(self.battle.fighters[5].health, 30)
+        for fighter in self.battle.fighters:
+            self.assertGreaterEqual(fighter.health, fighter.level)
+            self.assertLessEqual(fighter.health, fighter.level * 10)
 
     def test_armor_class(self):
         self.assertEqual(self.battle.fighters[0].armor_class, 4)  # chain mail (5) + small shield (1)
@@ -89,68 +80,197 @@ class TestAI(unittest.TestCase):
         self.battle = Battle('Test Battle', test_roles, verbose=False)
 
     def test_random_attack_ai(self):
-        fighters_with_random_ai = [fighter for fighter in self.battle.fighters if fighter.ai == RandomAttackAI]
-        self.assertGreater(len(fighters_with_random_ai), 0, "No fighters with RandomAttackAI found")
+        # randomly select a RandomAttackAI fighter for testing
+        fighters_with_random_attack_ai = [fighter for fighter in self.battle.fighters if fighter.ai == RandomAttackAI]
+        self.assertGreater(len(fighters_with_random_attack_ai), 0, "No fighters with RandomAttackAI found")
+        test_fighter = random.choice(fighters_with_random_attack_ai)
 
-        # Perform the battle
-        self.battle.fight_battle()
+        # Take multiple turns to ensure the fighter targets multiple opponents
+        targeted_opponents = set()
+        for _ in range(10):  # Number of turns to check randomness
+            self.battle.logs.clear()
+            test_fighter.take_turn()
+            for log in self.battle.logs:
+                if 'attacks' in log or 'misses' in log:
+                    attacker_name = log.split()[0]
+                    if attacker_name == test_fighter.name:
+                        target = log.split()[2]
+                        targeted_opponents.add(target)
 
-        # Filter logs to include only attacks by fighters with random AI
-        attacked_opponents = set()
-        for log in self.battle.logs:
-            if 'attacks' in log:
-                attacker_name = log.split()[0]
-                if any(attacker_name == fighter.name for fighter in fighters_with_random_ai):
-                    attacked_opponents.add(log.split()[2])
-
-        # Ensure that the number of unique attacked opponents is greater than 1
-        self.assertTrue(len(set(attacked_opponents)) > 1, "Random AI fighters should attack more than one unique opponent")
+        # Check that multiple opponents were targeted
+        self.assertGreater(len(targeted_opponents), 1, f"{test_fighter.name} did not target multiple opponents")
 
     def test_lowest_health_attack_ai(self):
+        # randomly select a LowestHealthAI fighter for testing
         fighters_with_lowest_health_ai = [fighter for fighter in self.battle.fighters if fighter.ai == LowestHealthAI]
-        self.assertGreater(len(fighters_with_lowest_health_ai), 0)
+        self.assertGreater(len(fighters_with_lowest_health_ai), 0, "No fighters with LowestHealthAI found")
+        test_fighter = random.choice(fighters_with_lowest_health_ai)
 
-        self.battle.fight_battle()
-        lowest_health_fighters = sorted([fighter for fighter in self.battle.fighters if fighter.faction != 'Order'], key=lambda f: f.health)
-        for fighter in fighters_with_lowest_health_ai:
-            target = min(lowest_health_fighters, key=lambda f: f.health)
-            self.assertIn(target.name, [log.split()[2] for log in self.battle.logs if 'attacks' in log])
+        # Determine opponents with the lowest health
+        min_health = min(fighter.health for fighter in self.battle.fighters if fighter.faction != test_fighter.faction)
+        lowest_health_fighters = [fighter.name for fighter in self.battle.fighters if fighter.health == min_health and fighter.faction != test_fighter.faction]
+
+        # Have the fighter take their turn
+        test_fighter.take_turn()
+
+        # verify the fighter's target is in lowest_health_fighters
+        attacked = False
+        for log in self.battle.logs:
+            if 'attacks' in log or 'misses' in log:
+                attacker_name = log.split()[0]
+                if attacker_name == test_fighter.name:
+                    target = log.split()[2]
+                    self.assertIn(target, lowest_health_fighters, f"{test_fighter.name} did not target one of the lowest health opponents")
+                    attacked = True
+
+        self.assertTrue(attacked, f"{test_fighter.name} did not perform any attacks or misses")
 
     def test_greatest_threat_ai(self):
+        # randomly select a GreatestThreatAI fighter for testing
         fighters_with_greatest_threat_ai = [fighter for fighter in self.battle.fighters if fighter.ai == GreatestThreatAI]
-        self.assertGreater(len(fighters_with_greatest_threat_ai), 0)
+        self.assertGreater(len(fighters_with_greatest_threat_ai), 0, "No fighters with GreatestThreatAI found")
+        test_fighter = random.choice(fighters_with_greatest_threat_ai)
 
-        self.battle.fight_battle()
-        threat_fighters = sorted([fighter for fighter in self.battle.fighters if fighter.faction != 'Order'], key=lambda f: GreatestThreatAI.calculate_threat(f))
-        for fighter in fighters_with_greatest_threat_ai:
-            target = max(threat_fighters, key=lambda f: GreatestThreatAI.calculate_threat(f))
-            self.assertIn(target.name, [log.split()[2] for log in self.battle.logs if 'attacks' in log])
+        # Determine opponents with the greatest threat
+        opponents = [fighter for fighter in self.battle.fighters if fighter.faction != test_fighter.faction]
+        max_threat = max(GreatestThreatAI.calculate_threat(opponent) for opponent in opponents)
+        greatest_threat_fighters = [fighter.name for fighter in opponents if GreatestThreatAI.calculate_threat(fighter) == max_threat]
 
-    def test_defensive_ai(self):
-        fighters_with_defensive_ai = [fighter for fighter in self.battle.fighters if fighter.ai == DefensiveAI]
-        self.assertGreater(len(fighters_with_defensive_ai), 0)
+        # Have the fighter take their turn
+        test_fighter.take_turn()
 
-        self.battle.fight_battle()
-        for fighter in fighters_with_defensive_ai:
-            if fighter.health < fighter.max_health / 4:
-                self.assertTrue(any('Shield Wall' in log or 'Defensive Stance' in log for log in self.battle.logs))
-            else:
-                self.assertTrue(any('Shield Wall' not in log and 'Defensive Stance' not in log for log in self.battle.logs))
+        # verify the fighter's target is in greatest_threat_fighters
+        attacked = False
+        for log in self.battle.logs:
+            if 'attacks' in log or 'misses' in log:
+                attacker_name = log.split()[0]
+                if attacker_name == test_fighter.name:
+                    target = log.split()[2]
+                    self.assertIn(target, greatest_threat_fighters, f"{test_fighter.name} did not target one of the greatest threat opponents")
+                    attacked = True
 
-class TestBuff(unittest.TestCase):
+        self.assertTrue(attacked, f"{test_fighter.name} did not perform any attacks or misses")
+
+    class TestDefensiveAI(unittest.TestCase):
+
+        def setUp(self):
+            self.battle = Battle('Test Battle', test_roles, verbose=False)
+
+        def test_defensive_ai_low_health(self):
+            # Set the DefensiveAI fighter's health to low
+            defender = next(fighter for fighter in self.battle.fighters if fighter.ai == DefensiveAI)
+            defender.health = defender.max_health / 4 - 1  # Trigger defensive behavior
+
+            # Clear logs and take turn
+            self.battle.logs.clear()
+            defender.take_turn()
+
+            # Check that a defensive action was taken
+            defensive_action_taken = any('gains buff' in log and defender.name in log for log in self.battle.logs)
+            self.assertTrue(defensive_action_taken, f"{defender.name} did not take a defensive action")
+
+        def test_defensive_ai_high_health(self):
+            # Set the DefensiveAI fighter's health to high
+            defender = next(fighter for fighter in self.battle.fighters if fighter.ai == DefensiveAI)
+            defender.health = defender.max_health  # Set to full health
+
+            # Clear logs and take turn
+            self.battle.logs.clear()
+            defender.take_turn()
+
+            # Check that the fighter attacked an opponent
+            attack_action_taken = any('attacks' in log or 'misses' in log for log in self.battle.logs if log.split()[0] == defender.name)
+            self.assertTrue(attack_action_taken, f"{defender.name} did not attack an opponent")
+
+        def test_defensive_ai_switching_behaviors(self):
+            # Set the DefensiveAI fighter's health to low and then high to check switching behaviors
+            defender = next(fighter for fighter in self.battle.fighters if fighter.ai == DefensiveAI)
+
+            # Set health to low and take turn
+            defender.health = defender.max_health / 4 - 1
+            self.battle.logs.clear()
+            defender.take_turn()
+            defensive_action_taken = any('gains buff' in log and defender.name in log for log in self.battle.logs)
+            self.assertTrue(defensive_action_taken, f"{defender.name} did not take a defensive action when health was low")
+
+            # Set health to high and take turn
+            defender.health = defender.max_health
+            self.battle.logs.clear()
+            defender.take_turn()
+            attack_action_taken = any('attacks' in log or 'misses' in log for log in self.battle.logs if log.split()[0] == defender.name)
+            self.assertTrue(attack_action_taken, f"{defender.name} did not attack an opponent when health was high")
+
+class TestBuffs(unittest.TestCase):
     def setUp(self):
-        self.fighter = Fighter('Test Fighter', 5, GreatestThreatAI, 'Order', 'long sword', 'chain mail', 'small shield')
+        self.battle = Battle('Test Buffs Battle', test_roles, verbose=False)
 
-    def test_apply_buff(self):
-        self.fighter.apply_buff(berserk_rage)
-        self.assertIn(berserk_rage, self.fighter.buffs)
-        self.assertEqual(self.fighter.attack_bonus, 3)
+    def test_defensive_stance_application(self):
+        test_fighter = random.choice(self.battle.fighters)
+        initial_armor_class = test_fighter.armor_class
+        test_fighter.apply_buff(BuffManager.create_defensive_stance())
+        self.assertEqual(test_fighter.armor_class, initial_armor_class - 2, "Armor class did not decrease correctly after applying Defensive Stance")
 
-    def test_buff_duration_and_cooldown(self):
-        berserk_rage.apply(self.fighter)
-        for _ in range(6):
-            for buff in self.fighter.buffs:
-                buff.tick
+    def test_shield_wall_application(self):
+        test_fighter = random.choice(self.battle.fighters)
+        initial_armor_class = test_fighter.armor_class
+        test_fighter.apply_buff(BuffManager.create_shield_wall())
+        self.assertEqual(test_fighter.armor_class, initial_armor_class - 4, "Armor class did not decrease correctly after applying Shield Wall")
+
+    def test_defensive_action_buff_with_shield(self):
+        test_fighter = next(fighter for fighter in self.battle.fighters if fighter.shield != None)
+        initial_armor_class = test_fighter.armor_class
+        test_fighter.take_defensive_action()
+        self.assertEqual(test_fighter.armor_class, initial_armor_class - 4, "Defensive Action with shield did not apply Shield Wall buff")
+
+    def test_defensive_action_buff_with_no_shield(self):
+        test_fighter = next(fighter for fighter in self.battle.fighters if fighter.shield == None)
+        initial_armor_class = test_fighter.armor_class
+        test_fighter.take_defensive_action()
+        self.assertEqual(test_fighter.armor_class, initial_armor_class - 2, "Defensive Action without shield did not apply Defensive Stance buff")
+
+    def test_buff_duration(self):
+        test_fighter = random.choice(self.battle.fighters)
+        initial_armor_class = test_fighter.armor_class
+        test_fighter.apply_buff(BuffManager.create_defensive_stance())
+        self.assertEqual(test_fighter.armor_class, initial_armor_class - 2, "Buff was not applied correctly")
+        for _ in range(3):
+            test_fighter.take_turn()
+        self.assertEqual(test_fighter.armor_class, initial_armor_class, "Buff should have expired")
+
+    def test_buff_cooldown(self):
+        test_fighter = random.choice(self.battle.fighters)
+        test_fighter.apply_buff(BuffManager.create_shield_wall())
+        self.assertEqual(test_fighter.buffs[0].remaining_cooldown, test_fighter.buffs[0].cooldown, "Buff cooldown was not set correctly")
+        for _ in range(test_fighter.buffs[0].duration):
+            test_fighter.take_turn()
+        self.assertEqual(test_fighter.buffs[0].remaining_cooldown, test_fighter.buffs[0].cooldown, "Buff cooldown started before buff expired")
+        for _ in range(test_fighter.buffs[0].cooldown):
+            test_fighter.take_turn()
+        self.assertEqual(test_fighter.buffs[0].remaining_cooldown, 0, "Buff cooldown did not decrease correctly")
+
+    def test_berserk_rage_last_teammate(self):
+        self.fighter2.health = 0  # Simulate fighter2 already dead
+        self.fighter1.die()  # Simulate fighter1 dying
+        self.assertEqual(self.fighter2.attack_bonus, 3, "Last teammate did not receive Berserk Rage correctly")
+
+    def test_heal_over_time_application(self):
+        initial_health = self.fighter1.health
+        self.heal_over_time.apply(self.fighter1)
+        self.assertGreater(self.fighter1.health, initial_health, "Health did not increase correctly after applying Heal Over Time")
+
+    def test_heal_over_time_duration(self):
+        self.heal_over_time.apply(self.fighter1)
+        for _ in range(3):
+            self.heal_over_time.tick(self.fighter1)
+        self.assertEqual(self.heal_over_time.remaining_duration, 0, "Buff should have expired")
+
+    def test_heal_over_time_cooldown(self):
+        self.heal_over_time.apply(self.fighter1)
+        for _ in range(3):
+            self.heal_over_time.tick(self.fighter1)
+        for _ in range(5):
+            self.heal_over_time.tick(self.fighter1)
+        self.assertEqual(self.heal_over_time.remaining_cooldown, 0, "Buff cooldown did not decrease correctly")
 
 if __name__ == '__main__':
     unittest.main()
