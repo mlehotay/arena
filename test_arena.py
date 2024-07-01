@@ -151,57 +151,61 @@ class TestAI(unittest.TestCase):
 
         self.assertTrue(attacked, f"{test_fighter.name} did not perform any attacks or misses")
 
-    class TestDefensiveAI(unittest.TestCase):
+class TestDefensiveAI(unittest.TestCase):
 
-        def setUp(self):
-            self.battle = Battle('Test Battle', test_roles, verbose=False)
+    def setUp(self):
+        self.battle = Battle('Test Battle', test_roles, verbose=False)
 
-        def test_defensive_ai_low_health(self):
-            # Set the DefensiveAI fighter's health to low
-            defender = next(fighter for fighter in self.battle.fighters if fighter.ai == DefensiveAI)
-            defender.health = defender.max_health / 4 - 1  # Trigger defensive behavior
+    def test_defensive_ai_low_health(self):
+        # Set the DefensiveAI fighter's health to low
+        defender = next(fighter for fighter in self.battle.fighters if fighter.ai == DefensiveAI)
+        defender.health = defender.max_health / 4 - 1  # Trigger defensive behavior
 
-            # Clear logs and take turn
-            self.battle.logs.clear()
-            defender.take_turn()
+        # Clear logs and take turn
+        self.battle.logs.clear()
+        defender.take_turn()
 
-            # Check that a defensive action was taken
-            defensive_action_taken = any('gains buff' in log and defender.name in log for log in self.battle.logs)
-            self.assertTrue(defensive_action_taken, f"{defender.name} did not take a defensive action")
+        # Check that a defensive action was taken
+        defensive_action_taken = any('gains buff' in log and defender.name in log for log in self.battle.logs)
+        self.assertTrue(defensive_action_taken, f"{defender.name} did not take a defensive action")
 
-        def test_defensive_ai_high_health(self):
-            # Set the DefensiveAI fighter's health to high
-            defender = next(fighter for fighter in self.battle.fighters if fighter.ai == DefensiveAI)
-            defender.health = defender.max_health  # Set to full health
+    def test_defensive_ai_high_health(self):
+        # Set the DefensiveAI fighter's health to high
+        defender = next(fighter for fighter in self.battle.fighters if fighter.ai == DefensiveAI)
+        defender.health = defender.max_health  # Set to full health
 
-            # Clear logs and take turn
-            self.battle.logs.clear()
-            defender.take_turn()
+        # Clear logs and take turn
+        self.battle.logs.clear()
+        defender.take_turn()
 
-            # Check that the fighter attacked an opponent
-            attack_action_taken = any('attacks' in log or 'misses' in log for log in self.battle.logs if log.split()[0] == defender.name)
-            self.assertTrue(attack_action_taken, f"{defender.name} did not attack an opponent")
+        # Check that the fighter attacked an opponent
+        attack_action_taken = any('attacks' in log or 'misses' in log for log in self.battle.logs if log.split()[0] == defender.name)
+        self.assertTrue(attack_action_taken, f"{defender.name} did not attack an opponent")
 
-        def test_defensive_ai_switching_behaviors(self):
-            # Set the DefensiveAI fighter's health to low and then high to check switching behaviors
-            defender = next(fighter for fighter in self.battle.fighters if fighter.ai == DefensiveAI)
+    def test_defensive_ai_switching_behaviors(self):
+        # Set the DefensiveAI fighter's health to low and then high to check switching behaviors
+        defender = next(fighter for fighter in self.battle.fighters if fighter.ai == DefensiveAI)
 
-            # Set health to low and take turn
-            defender.health = defender.max_health / 4 - 1
-            self.battle.logs.clear()
-            defender.take_turn()
-            defensive_action_taken = any('gains buff' in log and defender.name in log for log in self.battle.logs)
-            self.assertTrue(defensive_action_taken, f"{defender.name} did not take a defensive action when health was low")
+        # Set health to low and take turn
+        defender.health = defender.max_health / 4 - 1
+        self.battle.logs.clear()
+        defender.take_turn()
+        defensive_action_taken = any('gains buff' in log and defender.name in log for log in self.battle.logs)
+        self.assertTrue(defensive_action_taken, f"{defender.name} did not take a defensive action when health was low")
 
-            # Set health to high and take turn
-            defender.health = defender.max_health
-            self.battle.logs.clear()
-            defender.take_turn()
-            attack_action_taken = any('attacks' in log or 'misses' in log for log in self.battle.logs if log.split()[0] == defender.name)
-            self.assertTrue(attack_action_taken, f"{defender.name} did not attack an opponent when health was high")
+        # Set health to high and take turn
+        defender.health = defender.max_health
+        self.battle.logs.clear()
+        defender.take_turn()
+        attack_action_taken = any('attacks' in log or 'misses' in log for log in self.battle.logs if log.split()[0] == defender.name)
+        self.assertTrue(attack_action_taken, f"{defender.name} did not attack an opponent when health was high")
 
 class TestBuffs(unittest.TestCase):
     def setUp(self):
+        test_roles = [
+            {'name': 'Alice', 'faction': 'Order', 'level': 5, 'class': Fighter, 'ai': RandomAttackAI, 'weapon': 'long sword', 'armor': 'chain mail', 'shield': 'small shield'},
+            {'name': 'Bob', 'faction': 'Order', 'level': 4, 'class': Fighter, 'ai': GreatestThreatAI, 'weapon': 'two-handed sword', 'armor': 'leather armor', 'shield': None},
+        ]
         self.battle = Battle('Test Buffs Battle', test_roles, verbose=False)
 
     def test_defensive_stance_application(self):
@@ -217,13 +221,13 @@ class TestBuffs(unittest.TestCase):
         self.assertEqual(test_fighter.armor_class, initial_armor_class - 4, "Armor class did not decrease correctly after applying Shield Wall")
 
     def test_defensive_action_buff_with_shield(self):
-        test_fighter = next(fighter for fighter in self.battle.fighters if fighter.shield != None)
+        test_fighter = next(fighter for fighter in self.battle.fighters if fighter.shield is not None)
         initial_armor_class = test_fighter.armor_class
         test_fighter.take_defensive_action()
         self.assertEqual(test_fighter.armor_class, initial_armor_class - 4, "Defensive Action with shield did not apply Shield Wall buff")
 
     def test_defensive_action_buff_with_no_shield(self):
-        test_fighter = next(fighter for fighter in self.battle.fighters if fighter.shield == None)
+        test_fighter = next(fighter for fighter in self.battle.fighters if fighter.shield is None)
         initial_armor_class = test_fighter.armor_class
         test_fighter.take_defensive_action()
         self.assertEqual(test_fighter.armor_class, initial_armor_class - 2, "Defensive Action without shield did not apply Defensive Stance buff")
@@ -233,7 +237,7 @@ class TestBuffs(unittest.TestCase):
         initial_armor_class = test_fighter.armor_class
         test_fighter.apply_buff(BuffManager.create_defensive_stance())
         self.assertEqual(test_fighter.armor_class, initial_armor_class - 2, "Buff was not applied correctly")
-        for _ in range(3):
+        for _ in range(test_fighter.buffs[0].duration):
             test_fighter.take_turn()
         self.assertEqual(test_fighter.armor_class, initial_armor_class, "Buff should have expired")
 
@@ -249,28 +253,41 @@ class TestBuffs(unittest.TestCase):
         self.assertEqual(test_fighter.buffs[0].remaining_cooldown, 0, "Buff cooldown did not decrease correctly")
 
     def test_berserk_rage_last_teammate(self):
-        self.fighter2.health = 0  # Simulate fighter2 already dead
-        self.fighter1.die()  # Simulate fighter1 dying
-        self.assertEqual(self.fighter2.attack_bonus, 3, "Last teammate did not receive Berserk Rage correctly")
+        test_fighter = random.choice(self.battle.fighters)
+        team_mate = next(fighter for fighter in self.battle.fighters if fighter != test_fighter)
+        team_mate.die()  # Simulate team mate death
+        self.assertIn('Berserk Rage', [buff.name for buff in test_fighter.buffs], "Berserk Rage buff was not applied correctly")
+
+        # Check attack bonus progression
+        expected_attack_bonus = 3
+        for _ in range(4):
+            self.assertEqual(test_fighter.attack_bonus, expected_attack_bonus, f"Attack bonus did not increase correctly after applying Berserk Rage")
+            test_fighter.take_turn()
+            expected_attack_bonus -= 1
 
     def test_heal_over_time_application(self):
-        initial_health = self.fighter1.health
-        self.heal_over_time.apply(self.fighter1)
-        self.assertGreater(self.fighter1.health, initial_health, "Health did not increase correctly after applying Heal Over Time")
+        test_fighter = random.choice(self.battle.fighters)
+        initial_health = test_fighter.health
+        test_fighter.apply_buff(BuffManager.create_heal_over_time())
+        for _ in range(2):  # Healing over two turns
+            test_fighter.take_turn()
+        self.assertGreater(test_fighter.health, initial_health, "Health did not increase correctly after applying Heal Over Time")
 
     def test_heal_over_time_duration(self):
-        self.heal_over_time.apply(self.fighter1)
-        for _ in range(3):
-            self.heal_over_time.tick(self.fighter1)
-        self.assertEqual(self.heal_over_time.remaining_duration, 0, "Buff should have expired")
+        test_fighter = random.choice(self.battle.fighters)
+        initial_health = test_fighter.health
+        test_fighter.apply_buff(BuffManager.create_heal_over_time())
+        for _ in range(3):  # Healing over three turns
+            test_fighter.take_turn()
+        self.assertGreater(test_fighter.health, initial_health, "Health should have increased over time")
 
     def test_heal_over_time_cooldown(self):
-        self.heal_over_time.apply(self.fighter1)
-        for _ in range(3):
-            self.heal_over_time.tick(self.fighter1)
-        for _ in range(5):
-            self.heal_over_time.tick(self.fighter1)
-        self.assertEqual(self.heal_over_time.remaining_cooldown, 0, "Buff cooldown did not decrease correctly")
+        test_fighter = random.choice(self.battle.fighters)
+        buff = BuffManager.create_heal_over_time()
+        test_fighter.apply_buff(buff)
+        for _ in range(buff.duration + buff.cooldown):  # Full duration plus cooldown
+            test_fighter.take_turn()
+        self.assertEqual(buff.remaining_cooldown, 0, "Buff cooldown did not decrease correctly")
 
 if __name__ == '__main__':
     unittest.main()
