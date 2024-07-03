@@ -81,7 +81,6 @@ class Fighter:
         if attack_roll >= target_ac:
             (dice, sides, addend) = weapon_list[self.weapon]
             damage = roll(dice, sides) + addend + self.damage_bonus
-            # self.battle.log(f'{self.name} hits {opponent.name} for {damage} damage!')
             opponent.take_damage(damage, self)
         else:
             self.battle.log(f'{self.name} misses {opponent.name}')
@@ -143,23 +142,19 @@ class Battle:
     def add_fighter(self, fighter):
         self.fighters.append(fighter)
         fighter.battle = self
-        self.log(f'{fighter} joins {self}')
 
     def fight_battle(self):
-        if self.verbose:
-            (f'{self.title} fighters:')
-            for fighter in self.fighters:
-                (fighter)
+        self.log(f'{self.title} fighters:')
+        for fighter in self.fighters:
+            self.log(fighter)
         while self.winner is None:
             self.play_round()
-        if self.verbose:
-            (f'{self.winner} wins {self.title}!')
+        self.log(f'{self.winner} wins {self.title}!')
         return self.winner
 
     def play_round(self):
         self.turn += 1
-        if self.verbose:
-            (f'{self}:')
+        self.log(f'{self}:')
         for f in self.fighters:
             f.take_turn()
         if len({f.faction for f in self.fighters}) == 1:
@@ -188,91 +183,6 @@ class Arena:
         print('Estimated Probabilities of Victory:')
         for faction in sorted(self.factions):
             print(f'{faction}: {self.wins[faction] / self.iterations:.2%}')
-
-class Game:
-    def run(self):
-        print('Arena version ' + VERSION)
-
-        roles = [
-            {'name': 'Glenda', 'faction': 'Red', 'level': 6, 'class': Fighter, 'weapon': 'long sword', 'armor': 'chain mail', 'shield': None, 'ai': GreatestThreatAI},
-            {'name': 'Hiro', 'faction': 'Blue', 'level': 3, 'class': Fighter, 'weapon': 'two-handed sword', 'armor': 'leather armor', 'shield': None, 'ai': LowestHealthAI},
-            {'name': 'Alice', 'faction': 'Blue', 'level': 4, 'class': Fighter, 'weapon': 'trident', 'armor': 'ring mail', 'shield': 'small shield', 'ai': DefensiveAI},
-        ]
-
-        battle = Arena(roles, iterations=1000, verbose=False)
-        battle.simulate_battle()
-        battle.print_probabilities()
-
-#############################################################################
-# Buffs
-
-class Buff:
-    def __init__(self, name, attribute, value, duration, cooldown, dynamic_function=None):
-        self.name = name
-        self.attribute = attribute
-        self.value = value
-        self.duration = duration
-        self.cooldown = cooldown
-        self.remaining_duration = 0
-        self.remaining_cooldown = 0
-        self.dynamic_function = dynamic_function
-
-    def apply(self, fighter):
-        if self.remaining_cooldown == 0:
-            # print(f"Applying buff {self.name} to {fighter.name}")
-            self.remaining_duration = self.duration
-            self.remaining_cooldown = self.cooldown
-            self._effect(fighter, apply=True)
-
-    def tick(self, fighter):
-        if self.remaining_duration > 0:
-            self.remaining_duration -= 1
-            # print(f"{self.name} duration: {self.remaining_duration} for {fighter.name}")
-            if self.remaining_duration == 0:
-                self._effect(fighter, apply=False)
-                # print(f"Buff {self.name} expired for {fighter.name}")
-        elif self.remaining_cooldown > 0:
-            self.remaining_cooldown -= 1
-            # print(f"{self.name} cooldown: {self.remaining_cooldown} for {fighter.name}")
-
-    def _effect(self, fighter, apply):
-        if self.dynamic_function:
-            self.dynamic_function(fighter, apply)
-        else:
-            if apply:
-                setattr(fighter, self.attribute, getattr(fighter, self.attribute) + self.value)
-            else:
-                setattr(fighter, self.attribute, getattr(fighter, self.attribute) - self.value)
-
-class BuffManager:
-    @staticmethod
-    def create_defensive_stance():
-        return Buff('Defensive Stance', 'armor_class', -2, duration=3, cooldown=5)
-
-    @staticmethod
-    def create_shield_wall():
-        return Buff('Shield Wall', 'armor_class', -4, duration=2, cooldown=5)
-
-    @staticmethod
-    def create_berserk_rage():
-        def berserk_rage_effect(fighter, apply):
-            current_value = 3
-            decrement = 1
-            if apply:
-                fighter.attack_bonus += current_value
-            else:
-                fighter.attack_bonus -= current_value
-                current_value = max(0, current_value - decrement)
-
-        return Buff('Berserk Rage', None, None, duration=5, cooldown=10, dynamic_function=berserk_rage_effect)
-
-    @staticmethod
-    def create_heal_over_time():
-        def heal_over_time_effect(fighter, apply):
-            if apply:
-                fighter.health = min(fighter.max_health, fighter.health + 2)
-
-        return Buff('Heal Over Time', 'health', 2, duration=3, cooldown=5, dynamic_function=heal_over_time_effect)
 
 #############################################################################
 # AI
@@ -332,5 +242,91 @@ class DefensiveAI(AI):
             GreatestThreatAI.take_turn(fighter)
 
 #############################################################################
+# Buffs
+
+class Buff:
+    def __init__(self, name, attribute, value, duration, cooldown, dynamic_function=None):
+        self.name = name
+        self.attribute = attribute
+        self.value = value
+        self.duration = duration
+        self.cooldown = cooldown
+        self.remaining_duration = 0
+        self.remaining_cooldown = 0
+        self.dynamic_function = dynamic_function
+
+    def apply(self, fighter):
+        if self.remaining_cooldown == 0:
+            fighter.battle.log(f"Applying buff {self.name} to {fighter.name}")
+            self.remaining_duration = self.duration
+            self.remaining_cooldown = self.cooldown
+            self._effect(fighter, apply=True)
+
+    def tick(self, fighter):
+        if self.remaining_duration > 0:
+            self.remaining_duration -= 1
+            fighter.battle.log(f"{self.name} duration: {self.remaining_duration} for {fighter.name}")
+            if self.remaining_duration == 0:
+                self._effect(fighter, apply=False)
+                fighter.battle.log(f"Buff {self.name} expired for {fighter.name}")
+        elif self.remaining_cooldown > 0:
+            self.remaining_cooldown -= 1
+            fighter.battle.log(f"{self.name} cooldown: {self.remaining_cooldown} for {fighter.name}")
+
+    def _effect(self, fighter, apply):
+        if self.dynamic_function:
+            self.dynamic_function(fighter, apply)
+        else:
+            if apply:
+                setattr(fighter, self.attribute, getattr(fighter, self.attribute) + self.value)
+            else:
+                setattr(fighter, self.attribute, getattr(fighter, self.attribute) - self.value)
+
+class BuffManager:
+    @staticmethod
+    def create_defensive_stance():
+        return Buff('Defensive Stance', 'armor_class', -2, duration=3, cooldown=5)
+
+    @staticmethod
+    def create_shield_wall():
+        return Buff('Shield Wall', 'armor_class', -4, duration=3, cooldown=5)
+
+    @staticmethod
+    def create_berserk_rage():
+        def berserk_rage_effect(fighter, apply):
+            current_value = 3
+            decrement = 1
+            if apply:
+                fighter.attack_bonus += current_value
+            else:
+                fighter.attack_bonus -= current_value
+                current_value = max(0, current_value - decrement)
+
+        return Buff('Berserk Rage', None, None, duration=3, cooldown=5, dynamic_function=berserk_rage_effect)
+
+    @staticmethod
+    def create_heal_over_time():
+        def heal_over_time_effect(fighter, apply):
+            if apply:
+                fighter.health = min(fighter.max_health, fighter.health + 2)
+
+        return Buff('Heal Over Time', 'health', 2, duration=3, cooldown=5, dynamic_function=heal_over_time_effect)
+
+#############################################################################
 # start here
+
+class Game:
+    def run(self):
+        print('Arena version ' + VERSION)
+
+        roles = [
+            {'name': 'Glenda', 'faction': 'Red', 'level': 6, 'class': Fighter, 'weapon': 'long sword', 'armor': 'chain mail', 'shield': None, 'ai': GreatestThreatAI},
+            {'name': 'Hiro', 'faction': 'Blue', 'level': 3, 'class': Fighter, 'weapon': 'two-handed sword', 'armor': 'leather armor', 'shield': None, 'ai': LowestHealthAI},
+            {'name': 'Alice', 'faction': 'Blue', 'level': 4, 'class': Fighter, 'weapon': 'trident', 'armor': 'ring mail', 'shield': 'small shield', 'ai': DefensiveAI},
+        ]
+
+        battle = Arena(roles, iterations=1, verbose=True)
+        battle.simulate_battle()
+        battle.print_probabilities()
+
 Game().run()
