@@ -62,23 +62,24 @@ class Fighter:
         self.ai = ai
         self.buffs = []
         self.attack_bonus = 0
-        self.extra_attacks = 0
         self.damage_bonus = 0
-        self.critical_chance = 0
 
     def __repr__(self):
         ai_name = self.ai.__name__ if hasattr(self.ai, '__name__') else str(self.ai)
         return f'{self.name} ({self.health}/{self.max_health}) [Level {self.level} {self.__class__.__name__},  {ai_name}, {self.weapon}, {self.armor}, {self.faction}]'
 
     def take_turn(self):
-        for buff in self.buffs:
+        # Tick buffs before taking turn
+        for buff in self.buffs[:]:
             buff.tick(self)
+        # Remove buffs that have finished cooldown
+        self.buffs = [buff for buff in self.buffs if buff.remaining_cooldown > 0 or buff.remaining_duration > 0]
         self.ai.take_turn(self)
 
     def attack(self, opponent):
         attack_roll = roll(1, 20) + self.attack_bonus
-        target_ac = 22 - opponent.armor_class - self.level
-        if attack_roll >= target_ac:
+        to_hit_target = 22 - opponent.armor_class - self.level
+        if attack_roll >= to_hit_target:
             (dice, sides, addend) = weapon_list[self.weapon]
             damage = roll(dice, sides) + addend + self.damage_bonus
             opponent.take_damage(damage, self)
@@ -96,9 +97,9 @@ class Fighter:
         teammates = [f for f in self.battle.fighters if f.faction == self.faction and f != self]
         if len(teammates) == 1:
             last_teammate = teammates[0]
-            berserk_rage_buff = BuffManager.create_berserk_rage()
+            berserk_rage_buff = BuffCreator.create_berserk_rage()
             last_teammate.apply_buff(berserk_rage_buff)
-            self.battle.log(f'{last_teammate.name} goes into Berserk Rage!')
+            self.battle.log(f'{last_teammate.name} goes into a Berserk Rage!')
         self.battle.fighters.remove(self)
         self.battle = None
 
@@ -106,18 +107,18 @@ class Fighter:
         # Check if the 'Shield Wall' buff is already active or on cooldown
         shield_wall_buff_active = any(buff.name == 'Shield Wall' and buff.remaining_cooldown == 0 for buff in self.buffs)
         if self.shield and not shield_wall_buff_active:
-            self.apply_buff(BuffManager.create_shield_wall())
+            self.apply_buff(BuffCreator.create_shield_wall())
         else:
             # Only apply 'Defensive Stance' if it is not already active
             defensive_stance_buff_active = any(buff.name == 'Defensive Stance' and buff.remaining_cooldown == 0 for buff in self.buffs)
             if not defensive_stance_buff_active:
-                self.apply_buff(BuffManager.create_defensive_stance())
+                self.apply_buff(BuffCreator.create_defensive_stance())
 
     def apply_buff(self, buff):
         # Check if the buff is already applied or in cooldown
         for active_buff in self.buffs:
-            if active_buff.name == buff.name and active_buff.remaining_cooldown > 0:
-                self.battle.log(f'{self.name} already has buff: {buff.name}')
+            if active_buff.name == buff.name and (active_buff.remaining_duration > 0 or active_buff.remaining_cooldown > 0):
+                self.battle.log(f'{self.name} already has buff: {buff.name} with remaining duration: {active_buff.remaining_duration} or cooldown: {active_buff.remaining_cooldown}')
                 return
         buff.apply(self)
         self.buffs.append(buff)
@@ -245,72 +246,89 @@ class DefensiveAI(AI):
 # Buffs
 
 class Buff:
-    def __init__(self, name, attribute, value, duration, cooldown, dynamic_function=None):
+    def __init__(self, name, duration, apply_fn, tick_fn, remove_fn=None, cooldown=0):
         self.name = name
-        self.attribute = attribute
-        self.value = value
         self.duration = duration
+        self.remaining_duration = duration
         self.cooldown = cooldown
-        self.remaining_duration = 0
-        self.remaining_cooldown = 0
-        self.dynamic_function = dynamic_function
+        self.remaining_cooldown = cooldown  # Cooldown starts only after the buff expires
+        self.apply_fn = apply_fn
+        self.tick_fn = tick_fn
+        self.remove_fn = remove_fn
 
     def apply(self, fighter):
-        if self.remaining_cooldown == 0:
-            fighter.battle.log(f"Applying buff {self.name} to {fighter.name}")
-            self.remaining_duration = self.duration
-            self.remaining_cooldown = self.cooldown
-            self._effect(fighter, apply=True)
+        self.remaining_duration = self.duration  # Set duration
+        self.apply_fn(fighter)
 
     def tick(self, fighter):
         if self.remaining_duration > 0:
             self.remaining_duration -= 1
             fighter.battle.log(f"{self.name} duration: {self.remaining_duration} for {fighter.name}")
+            self.tick_fn(fighter)
             if self.remaining_duration == 0:
-                self._effect(fighter, apply=False)
-                fighter.battle.log(f"Buff {self.name} expired for {fighter.name}")
+                self.start_cooldown(fighter)
         elif self.remaining_cooldown > 0:
             self.remaining_cooldown -= 1
             fighter.battle.log(f"{self.name} cooldown: {self.remaining_cooldown} for {fighter.name}")
 
-    def _effect(self, fighter, apply):
-        if self.dynamic_function:
-            self.dynamic_function(fighter, apply)
-        else:
-            if apply:
-                setattr(fighter, self.attribute, getattr(fighter, self.attribute) + self.value)
-            else:
-                setattr(fighter, self.attribute, getattr(fighter, self.attribute) - self.value)
+    def start_cooldown(self, fighter):
+        if self.remove_fn:
+            self.remove_fn(fighter)
+        self.remaining_cooldown = self.cooldown  # Set cooldown
+        fighter.battle.log(f"Buff {self.name} expired for {fighter.name}, cooldown started")
 
-class BuffManager:
+class BuffCreator:
+    @staticmethod
+    def create_berserk_rage():
+        def apply_fn(fighter):
+            fighter.attack_bonus += 5
+
+        def tick_fn(fighter):
+            fighter.attack_bonus -= 1
+
+        def remove_fn(fighter):
+            pass  # No removal effect
+
+        return Buff('Berserk Rage', duration=5, apply_fn=apply_fn, tick_fn=tick_fn, remove_fn=remove_fn)
+
     @staticmethod
     def create_defensive_stance():
-        return Buff('Defensive Stance', 'armor_class', -2, duration=3, cooldown=5)
+        def apply_fn(fighter):
+            fighter.armor_class -= 4
+
+        def tick_fn(fighter):
+            pass  # No ticking effect
+
+        def remove_fn(fighter):
+            fighter.armor_class += 4  # Remove buff effect after expiration
+
+        return Buff('Defensive Stance', duration=1, apply_fn=apply_fn, tick_fn=tick_fn, remove_fn=remove_fn)
 
     @staticmethod
     def create_shield_wall():
-        return Buff('Shield Wall', 'armor_class', -4, duration=3, cooldown=5)
+        def apply_fn(fighter):
+            fighter.armor_class -= 6
 
-    @staticmethod
-    def create_berserk_rage():
-        def berserk_rage_effect(fighter, apply):
-            current_value = 3
-            decrement = 1
-            if apply:
-                fighter.attack_bonus += current_value
-            else:
-                fighter.attack_bonus -= current_value
-                current_value = max(0, current_value - decrement)
+        def tick_fn(fighter):
+            pass  # No ticking effect
 
-        return Buff('Berserk Rage', None, None, duration=3, cooldown=5, dynamic_function=berserk_rage_effect)
+        def remove_fn(fighter):
+            fighter.armor_class += 6  # Remove buff effect after expiration
+
+        return Buff('Shield Wall', duration=2, apply_fn=apply_fn, tick_fn=tick_fn, remove_fn=remove_fn, cooldown=5)
 
     @staticmethod
     def create_heal_over_time():
-        def heal_over_time_effect(fighter, apply):
-            if apply:
-                fighter.health = min(fighter.max_health, fighter.health + 2)
+        def apply_fn(fighter):
+            fighter.health += 5  # Heal 5 HP immediately
 
-        return Buff('Heal Over Time', 'health', 2, duration=3, cooldown=5, dynamic_function=heal_over_time_effect)
+        def tick_fn(fighter):
+            fighter.health += 5  # Heal 5 HP each turn
+
+        def remove_fn(fighter):
+            pass  # No removal effect
+
+        return Buff('Heal Over Time', duration=3, apply_fn=apply_fn, tick_fn=tick_fn, remove_fn=remove_fn)
 
 #############################################################################
 # start here
