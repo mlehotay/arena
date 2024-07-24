@@ -1,7 +1,9 @@
+# map.py
 from enum import Enum
 import heapq
 from typing import List, Tuple, Dict
 
+# Position and Terrain classes for spatial mechanics
 class TerrainType(Enum):
     PLAIN = 1
     FOREST = 2
@@ -16,24 +18,24 @@ TERRAIN_COSTS = {
 }
 
 class Position:
-    def __init__(self, x: int, y: int, map_type: str = 'grid', terrain: TerrainType = TerrainType.PLAIN):
+    def __init__(self, x, y, map_type='grid', terrain=TerrainType.PLAIN):
         self.x = x
         self.y = y
         self.map_type = map_type
         self.terrain = terrain
 
-    def __repr__(self) -> str:
+    def __repr__(self):
         return f"({self.x}, {self.y}, {self.map_type}, {self.terrain})"
 
-    def __eq__(self, other: object) -> bool:
+    def __eq__(self, other):
         if isinstance(other, Position):
             return self.x == other.x and self.y == other.y and self.map_type == other.map_type and self.terrain == other.terrain
         return False
 
-    def __hash__(self) -> int:
+    def __hash__(self):
         return hash((self.x, self.y, self.map_type, self.terrain))
 
-    def __lt__(self, other: 'Position') -> bool:
+    def __lt__(self, other):
         return (self.x, self.y) < (other.x, other.y)
 
 def calculateDistance(pos1: Position, pos2: Position) -> int:
@@ -129,20 +131,21 @@ def isWithinRange(start: Position, end: Position, range_limit: int) -> bool:
 
 # Example Usage with Hex Map
 
-# Create a 5x5 hex map
-game_map = Map(5, 5, 'hex')
+def run(self):
+    # Create a 5x5 hex map
+    game_map = Map(5, 5, 'hex')
 
-# Set some terrain types
-game_map.setTerrain(2, 2, TerrainType.FOREST)
-game_map.setTerrain(3, 3, TerrainType.MOUNTAIN)
-game_map.setTerrain(4, 4, TerrainType.WATER)
+    # Set some terrain types
+    game_map.setTerrain(2, 2, TerrainType.FOREST)
+    game_map.setTerrain(3, 3, TerrainType.MOUNTAIN)
+    game_map.setTerrain(4, 4, TerrainType.WATER)
 
-# Define start and goal positions
-start = game_map.getPosition(0, 0)
-goal = game_map.getPosition(4, 4)
+    # Define start and goal positions
+    start = game_map.getPosition(0, 0)
+    goal = game_map.getPosition(4, 4)
 
-# Find path using A* algorithm
-path = astar(start, goal, game_map)
+    # Find path using A* algorithm
+    path = astar(start, goal, game_map)
 
-# Print the path
-print("Path found:", path)
+    # Print the path
+    print("Path found:", path)
