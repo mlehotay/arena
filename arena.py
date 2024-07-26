@@ -4,7 +4,7 @@ from fighter import Fighter
 from ai import *
 from map import Map
 
-VERSION = '0.5'
+VERSION = '0.6'
 
 class Battle:
     def __init__(self, title, roles, verbose, map_width=10, map_height=10):
@@ -14,7 +14,7 @@ class Battle:
         self.winner = None
         self.turn = 0
         self.logs = []
-        self.map = Map(map_width, map_height, 'grid')
+        self.map = Map(map_width, map_height, 'hex')
 
         for role in roles:
             fighter = role['class'](role['name'], role['level'], role['ai'], role['faction'], role['weapon'], role['armor'], role['shield'])
@@ -29,7 +29,16 @@ class Battle:
         # Assign a random starting position
         x = random.randint(0, self.map.width - 1)
         y = random.randint(0, self.map.height - 1)
-        fighter.position = self.map.getPosition(x, y)
+        position = self.map.get_position(x, y)
+        self.map.add_fighter(fighter, position)
+
+    def remove_fighter(self, fighter):
+        self.fighters.remove(fighter)
+        fighter.battle = None
+        self.map.remove_fighter(fighter)
+
+    def move_fighter(self, fighter, new_position):
+        self.map.move_fighter(fighter, new_position)
 
     def fight_battle(self):
         self.log(f'{self.title} fighters:')
@@ -48,7 +57,7 @@ class Battle:
             if self.winner:
                 break
             fighter.take_turn()
-            factions = set(f.faction for f in self.fighters)
+            factions = set(f.faction for f in self.fighters if f.is_alive())
             if len(factions) == 1:
                 self.winner = factions.pop()
 
@@ -60,14 +69,15 @@ class Battle:
     def display_map(self):
         map_grid = [['.' for _ in range(self.map.width)] for _ in range(self.map.height)]
         for fighter in self.fighters:
-            x, y = fighter.position.x, fighter.position.y
-            if 0 <= x < self.map.width and 0 <= y < self.map.height:
-                map_grid[y][x] = fighter.name[0]
+            if fighter.is_alive():
+                x, y = fighter.position.x, fighter.position.y
+                if 0 <= x < self.map.width and 0 <= y < self.map.height:
+                    map_grid[y][x] = fighter.name[0]
         map_display = '\n'.join([' '.join(row) for row in map_grid])
         print(map_display)
 
     def resolve_ranged_attack(self, attacker, target):
-        distance = attacker.position.distance_to(target.position)
+        distance = self.map.calculate_distance(attacker.position, target.position)
         if attacker.ranged_weapon and attacker.ranged_weapon.ammunition:
             if distance <= attacker.ranged_weapon.range:
                 ammo = attacker.ranged_weapon.ammunition.pop()

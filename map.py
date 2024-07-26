@@ -1,4 +1,3 @@
-# map.py
 from enum import Enum
 import heapq
 from typing import List, Tuple, Dict
@@ -18,11 +17,12 @@ TERRAIN_COSTS = {
 }
 
 class Position:
-    def __init__(self, x, y, map_type='grid', terrain=TerrainType.PLAIN):
+    def __init__(self, x, y, map_type='grid8', terrain=TerrainType.PLAIN):
         self.x = x
         self.y = y
         self.map_type = map_type
         self.terrain = terrain
+        self.fighter = None
 
     def __repr__(self):
         return f"({self.x}, {self.y}, {self.map_type}, {self.terrain})"
@@ -38,114 +38,136 @@ class Position:
     def __lt__(self, other):
         return (self.x, self.y) < (other.x, other.y)
 
-def calculateDistance(pos1: Position, pos2: Position) -> int:
-    if pos1 is None or pos2 is None:
-        raise ValueError("Positions cannot be None.")
-    if pos1.map_type != pos2.map_type:
-        raise ValueError("Positions must be on the same type of map.")
-
-    if pos1.map_type == 'grid':
-        return abs(pos1.x - pos2.x) + abs(pos1.y - pos2.y)
-    elif pos1.map_type == 'hex':
-        return (abs(pos1.x - pos2.x) + abs(pos1.x + pos1.y - pos2.x - pos2.y) + abs(pos1.y - pos2.y)) // 2
-    elif pos1.map_type == 'grid8':
-        return max(abs(pos1.x - pos2.x), abs(pos1.y - pos2.y))
-    else:
-        raise ValueError(f"Unknown map type: {pos1.map_type}")
-
-GRID_NEIGHBORS: List[Tuple[int, int]] = [(0, 1), (1, 0), (0, -1), (-1, 0)]
+GRID4_NEIGHBORS: List[Tuple[int, int]] = [(0, 1), (1, 0), (0, -1), (-1, 0)]
 GRID8_NEIGHBORS: List[Tuple[int, int]] = [(0, 1), (1, 1), (1, 0), (1, -1), (0, -1), (-1, -1), (-1, 0), (-1, 1)]
 HEX_NEIGHBORS: List[Tuple[int, int]] = [(1, 0), (1, -1), (0, -1), (-1, 0), (-1, 1), (0, 1)]
 
 class Map:
-    def __init__(self, width: int, height: int, map_type: str = 'grid'):
+    def __init__(self, width: int, height: int, map_type: str = 'grid8'):
         self.width = width
         self.height = height
         self.map_type = map_type
         self.grid = [[Position(x, y, map_type) for y in range(height)] for x in range(width)]
 
-    def setTerrain(self, x: int, y: int, terrain: TerrainType):
+    def set_terrain(self, x: int, y: int, terrain: TerrainType):
         self.grid[x][y].terrain = terrain
 
-    def getPosition(self, x: int, y: int) -> Position:
+    def get_position(self, x: int, y: int) -> Position:
         return self.grid[x][y]
 
-    def getNeighbors(self, position: Position) -> List[Position]:
+    def add_fighter(self, fighter: 'Fighter', position: Position):
+        position.fighter = fighter
+        fighter.position = position
+
+    def remove_fighter(self, fighter: 'Fighter'):
+        fighter.position.fighter = None
+        fighter.position = None
+
+    def move_fighter(self, fighter: 'Fighter', new_position: Position):
+        fighter.position.fighter = None
+        new_position.fighter = fighter
+        fighter.position = new_position
+
+    def is_position_occupied(self, position):
+        return position.fighter != None
+
+    def is_valid_position(self, position: Position) -> bool:
+        return 0 <= position.x < self.width and 0 <= position.y < self.height
+
+    def calculate_distance(self, pos1: Position, pos2: Position) -> int:
+        if pos1 is None or pos2 is None:
+            raise ValueError("Positions cannot be None.")
+        if pos1.map_type != pos2.map_type:
+            raise ValueError("Positions must be on the same type of map.")
+
+        if pos1.map_type == 'grid4': # Manhattan distance
+            return abs(pos1.x - pos2.x) + abs(pos1.y - pos2.y)
+        elif pos1.map_type == 'hex': # axial distance
+            return (abs(pos1.x - pos2.x) + abs(pos1.x + pos1.y - pos2.x - pos2.y) + abs(pos1.y - pos2.y)) // 2
+        elif pos1.map_type == 'grid8': # Chebyshev distance
+            return max(abs(pos1.x - pos2.x), abs(pos1.y - pos2.y))
+        else:
+            raise ValueError(f"Unknown map type: {pos1.map_type}")
+
+    def is_within_range(self, start: Position, end: Position, range_limit: int) -> bool:
+        return self.calculate_distance(start, end) <= range_limit
+
+    def is_adjacent(self, pos1: Position, pos2: Position) -> bool:
+        return self.calculate_distance(pos1, pos2) == 1
+
+    def get_neighbors(self, position: Position) -> List[Position]:
         neighbors = []
-        if position.map_type == 'grid':
-            for dx, dy in GRID_NEIGHBORS:
+        if position.map_type == 'grid4':
+            for dx, dy in GRID4_NEIGHBORS:
                 nx, ny = position.x + dx, position.y + dy
-                if 0 <= nx < self.width and 0 <= ny < self.height:
-                    neighbors.append(self.grid[nx][ny])
+                if self.is_valid_position(self.get_position(nx, ny)):
+                    neighbors.append(self.get_position(nx, ny))
         elif position.map_type == 'hex':
             for dx, dy in HEX_NEIGHBORS:
                 nx, ny = position.x + dx, position.y + dy
-                if 0 <= nx < self.width and 0 <= ny < self.height:
-                    neighbors.append(self.grid[nx][ny])
+                if self.is_valid_position(self.get_position(nx, ny)):
+                    neighbors.append(self.get_position(nx, ny))
         elif position.map_type == 'grid8':
             for dx, dy in GRID8_NEIGHBORS:
                 nx, ny = position.x + dx, position.y + dy
-                if 0 <= nx < self.width and 0 <= ny < self.height:
-                    neighbors.append(self.grid[nx][ny])
+                if self.is_valid_position(self.get_position(nx, ny)):
+                    neighbors.append(self.get_position(nx, ny))
         return neighbors
 
-def heuristic(a: Position, b: Position) -> int:
-    return calculateDistance(a, b)
+    def move_towards(self, start_pos: Position, target_pos: Position) -> Position:
+        x1, y1 = start_pos.x, start_pos.y
+        x2, y2 = target_pos.x, target_pos.y
 
-def astar(start: Position, goal: Position, game_map: Map) -> List[Position]:
-    open_set = []
-    heapq.heappush(open_set, (0, start))
-    came_from: Dict[Position, Position] = {}
-    g_score: Dict[Position, int] = {start: 0}
-    f_score: Dict[Position, int] = {start: heuristic(start, goal)}
+        if x1 < x2:
+            new_x = x1 + 1
+        elif x1 > x2:
+            new_x = x1 - 1
+        else:
+            new_x = x1
 
-    open_set_hash = {start}
+        if y1 < y2:
+            new_y = y1 + 1
+        elif y1 > y2:
+            new_y = y1 - 1
+        else:
+            new_y = y1
 
-    while open_set:
-        current = heapq.heappop(open_set)[1]
-        open_set_hash.remove(current)
+        new_pos = self.get_position(new_x, new_y)
+        return new_pos if self.is_valid_position(new_pos) else start_pos
 
-        if current == goal:
-            path = []
-            while current in came_from:
-                path.append(current)
-                current = came_from[current]
-            path.append(start)
-            path.reverse()
-            return path
+    def heuristic(self, a: Position, b: Position) -> int:
+        return self.calculate_distance(a, b)
 
-        for neighbor in game_map.getNeighbors(current):
-            tentative_g_score = g_score[current] + TERRAIN_COSTS[neighbor.terrain]
-            if neighbor not in g_score or tentative_g_score < g_score[neighbor]:
-                came_from[neighbor] = current
-                g_score[neighbor] = tentative_g_score
-                f_score[neighbor] = tentative_g_score + heuristic(neighbor, goal)
-                if neighbor not in open_set_hash:
-                    heapq.heappush(open_set, (f_score[neighbor], neighbor))
-                    open_set_hash.add(neighbor)
+    def astar(self, start: Position, goal: Position) -> List[Position]:
+        open_set = []
+        heapq.heappush(open_set, (0, start))
+        came_from: Dict[Position, Position] = {}
+        g_score: Dict[Position, int] = {start: 0}
+        f_score: Dict[Position, int] = {start: self.heuristic(start, goal)}
 
-    return []
+        open_set_hash = {start}
 
-def isWithinRange(start: Position, end: Position, range_limit: int) -> bool:
-    return calculateDistance(start, end) <= range_limit
+        while open_set:
+            current = heapq.heappop(open_set)[1]
+            open_set_hash.remove(current)
 
-# Example Usage with Hex Map
+            if current == goal:
+                path = []
+                while current in came_from:
+                    path.append(current)
+                    current = came_from[current]
+                path.append(start)
+                path.reverse()
+                return path
 
-def run(self):
-    # Create a 5x5 hex map
-    game_map = Map(5, 5, 'hex')
+            for neighbor in self.get_neighbors(current):
+                tentative_g_score = g_score[current] + TERRAIN_COSTS[neighbor.terrain]
+                if neighbor not in g_score or tentative_g_score < g_score[neighbor]:
+                    came_from[neighbor] = current
+                    g_score[neighbor] = tentative_g_score
+                    f_score[neighbor] = tentative_g_score + self.heuristic(neighbor, goal)
+                    if neighbor not in open_set_hash:
+                        heapq.heappush(open_set, (f_score[neighbor], neighbor))
+                        open_set_hash.add(neighbor)
 
-    # Set some terrain types
-    game_map.setTerrain(2, 2, TerrainType.FOREST)
-    game_map.setTerrain(3, 3, TerrainType.MOUNTAIN)
-    game_map.setTerrain(4, 4, TerrainType.WATER)
-
-    # Define start and goal positions
-    start = game_map.getPosition(0, 0)
-    goal = game_map.getPosition(4, 4)
-
-    # Find path using A* algorithm
-    path = astar(start, goal, game_map)
-
-    # Print the path
-    print("Path found:", path)
+        return []

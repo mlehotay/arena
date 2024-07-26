@@ -1,6 +1,6 @@
 # fighter.py
 import random
-from map import Position
+from map import *
 from buff import *
 
 VERSION = '0.5'
@@ -58,7 +58,7 @@ class Fighter:
         self.max_health = sum(roll(1, 10) for _ in range(level))
         self.health = self.max_health
         self.faction = faction
-        self.position = Position(0, 0)  # Default starting position
+        self.position = None  # This will be set when the fighter is added to the map
         self.weapon = weapon
         self.ranged_weapon = None
         self.wielded_weapon = None  # For spears and other wielded weapons
@@ -78,10 +78,12 @@ class Fighter:
     def is_alive(self):
         return self.health > 0
 
-    def take_turn(self):
-        if not self.is_alive():
-            return # RIP
+    def is_dead(self):
+        return not self.is_alive()
 
+    def take_turn(self):
+        if self.is_dead():
+            return # RIP
         # Tick buffs before taking turn
         for buff in self.buffs[:]:
             buff.tick(self)
@@ -90,12 +92,19 @@ class Fighter:
         self.ai.take_turn(self)
 
     def attack(self, opponent):
+        # Check if attacker and opponent are adjacent
+        if not self.battle.map.is_adjacent(self.position, opponent.position):
+            self.battle.log(f'{self.name} cannot attack {opponent.name} because they are not adjacent.')
+            return
+
         attack_roll = roll(1, 20) + self.attack_bonus
         to_hit_target = 22 - opponent.armor_class - self.level
+
         if attack_roll >= to_hit_target:
             (dice, sides, addend) = weapon_list[self.weapon]
             damage = roll(dice, sides) + addend + self.damage_bonus
             opponent.take_damage(damage, self)
+            self.battle.log(f'{self.name} attacks {opponent.name} for {damage} damage!')
         else:
             self.battle.log(f'{self.name} misses {opponent.name}')
 
@@ -113,6 +122,7 @@ class Fighter:
             berserk_rage_buff = BuffCreator.create_berserk_rage()
             last_teammate.apply_buff(berserk_rage_buff)
             self.battle.log(f'{last_teammate.name} goes into a Berserk Rage!')
+        self.battle.map.remove_fighter(self)
         self.battle.fighters.remove(self)
         self.battle = None
 
@@ -140,6 +150,9 @@ class Fighter:
     def move_to(self, position: Position):
         if self.battle:
             if self.battle.map:
+                if self.battle.map.is_position_occupied(position):
+                    self.battle.log(f"{self.name} cannot move to {position}, position is occupied.")
+                    return
                 terrain_cost = TERRAIN_COSTS.get(position.terrain, 1)
                 self.position = position
                 self.battle.log(f'{self.name} moves to {position} with terrain cost {terrain_cost}')

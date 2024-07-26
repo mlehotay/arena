@@ -1,34 +1,47 @@
 # ai.py
 from fighter import *
 
-class AI:
+class BaseAI:
     @staticmethod
     def take_turn(fighter):
         raise NotImplementedError
 
-class RandomAttackAI(AI):
+    @staticmethod
+    def move_towards(fighter, target_position):
+        new_position = fighter.battle.map.move_towards(fighter.position, target_position)
+        fighter.move_to(new_position)
+
+    @staticmethod
+    def attack(fighter, target):
+        distance = fighter.battle.map.calculate_distance(fighter.position, target.position)
+        if distance <= 1:
+            fighter.attack(target)
+        else:
+            BaseAI.move_towards(fighter, target.position)
+
+class RandomAttackAI(BaseAI):
     @staticmethod
     def take_turn(fighter):
         opponents = [f for f in fighter.battle.fighters if f.faction != fighter.faction]
         if opponents:
             target = random.choice(opponents)
-            fighter.attack(target)
+            BaseAI.attack(fighter, target)
 
-class LowestHealthAI(AI):
+class LowestHealthAI(BaseAI):
     @staticmethod
     def take_turn(fighter):
         opponents = [f for f in fighter.battle.fighters if f.faction != fighter.faction]
         if opponents:
             target = min(opponents, key=lambda x: x.health)
-            fighter.attack(target)
+            BaseAI.attack(fighter, target)
 
-class GreatestThreatAI(AI):
+class GreatestThreatAI(BaseAI):
     @staticmethod
     def take_turn(fighter):
         opponents = [f for f in fighter.battle.fighters if f.faction != fighter.faction]
         if opponents:
             target = max(opponents, key=lambda x: GreatestThreatAI.calculate_threat(x))
-            fighter.attack(target)
+            BaseAI.attack(fighter, target)
 
     @staticmethod
     def calculate_threat(opponent):
@@ -38,7 +51,7 @@ class GreatestThreatAI(AI):
             return average_roll + addend + opponent.damage_bonus
         return 0
 
-class DefensiveAI(AI):
+class DefensiveAI(BaseAI):
     deadlock_threshold = 5  # Number of turns to wait before breaking deadlock
     deadlock_counter = 0
 
@@ -55,14 +68,14 @@ class DefensiveAI(AI):
             DefensiveAI.deadlock_counter = 0  # Reset counter if not in defensive action
             GreatestThreatAI.take_turn(fighter)
 
-class RangedAttackAI:
+class RangedAttackAI(BaseAI):
     @staticmethod
     def take_turn(fighter):
-        # Attempt to attack if an enemy is in range, otherwise move closer
-        target = random.choice([f for f in fighter.battle.fighters if f.faction != fighter.faction])
-        distance = calculate_distance(fighter.position, target.position)
-        if distance <= fighter.weapon.range:
-            fighter.attack(target)
-        else:
-            # Implement movement logic towards the target
-            pass
+        opponents = [f for f in fighter.battle.fighters if f.faction != fighter.faction]
+        if opponents:
+            target = random.choice(opponents)
+            distance = fighter.battle.map.calculate_distance(fighter.position, target.position)
+            if distance <= fighter.weapon.range:
+                fighter.attack(target)
+            else:
+                BaseAI.move_towards(fighter, target.position)
