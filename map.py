@@ -1,3 +1,4 @@
+# map.py
 from enum import Enum
 import heapq
 from typing import List, Tuple, Dict
@@ -52,27 +53,38 @@ class Map:
     def set_terrain(self, x: int, y: int, terrain: TerrainType):
         self.grid[x][y].terrain = terrain
 
-    def get_position(self, x: int, y: int) -> Position:
-        return self.grid[x][y]
+    def get_position(self, x, y):
+        if 0 <= x < self.width and 0 <= y < self.height:
+            return self.grid[x][y]
+        else:
+            return None
 
-    def add_fighter(self, fighter: 'Fighter', position: Position):
-        position.fighter = fighter
-        fighter.position = position
+    def occupy_position(self, fighter: 'Fighter', position: Position):
+        if self.is_valid_position(position) and position.fighter is None:
+            position.fighter = fighter
+            fighter.position = position
+        else:
+            raise ValueError("Position is invalid or already occupied.")
 
-    def remove_fighter(self, fighter: 'Fighter'):
-        fighter.position.fighter = None
-        fighter.position = None
+    def vacate_position(self, position: Position):
+        if self.is_valid_position(position) and self.is_position_occupied(position):
+            position.fighter.position = None
+            position.fighter = None
+        else:
+            raise ValueError("Position is invalid or not occupied.")
 
     def move_fighter(self, fighter: 'Fighter', new_position: Position):
-        fighter.position.fighter = None
-        new_position.fighter = fighter
-        fighter.position = new_position
+        if self.is_valid_position(new_position) and new_position.fighter is None:
+            self.vacate_position(fighter.position)
+            self.occupy_position(fighter, new_position)
+        else:
+            raise ValueError("New position is invalid or occupied.")
 
     def is_position_occupied(self, position):
-        return position.fighter != None
+        return position and position.fighter is not None
 
     def is_valid_position(self, position: Position) -> bool:
-        return 0 <= position.x < self.width and 0 <= position.y < self.height
+        return position is not None and 0 <= position.x < self.width and 0 <= position.y < self.height
 
     def calculate_distance(self, pos1: Position, pos2: Position) -> int:
         if pos1 is None or pos2 is None:
@@ -93,7 +105,7 @@ class Map:
         return self.calculate_distance(start, end) <= range_limit
 
     def is_adjacent(self, pos1: Position, pos2: Position) -> bool:
-        return self.calculate_distance(pos1, pos2) == 1
+        return self.calculate_distance(pos1, pos2) <= 1
 
     def get_neighbors(self, position: Position) -> List[Position]:
         neighbors = []
@@ -161,7 +173,14 @@ class Map:
                 return path
 
             for neighbor in self.get_neighbors(current):
-                tentative_g_score = g_score[current] + TERRAIN_COSTS[neighbor.terrain]
+                # Calculate terrain cost
+                terrain_cost = TERRAIN_COSTS.get(neighbor.terrain, float('inf'))
+
+                # If the neighbor is occupied by a fighter, increase the cost significantly
+                if neighbor.fighter:
+                    terrain_cost = float('inf')
+
+                tentative_g_score = g_score[current] + terrain_cost
                 if neighbor not in g_score or tentative_g_score < g_score[neighbor]:
                     came_from[neighbor] = current
                     g_score[neighbor] = tentative_g_score

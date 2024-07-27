@@ -1,4 +1,4 @@
-# arena.py
+# battle.py
 import random
 from fighter import Fighter
 from ai import *
@@ -7,14 +7,15 @@ from map import Map
 VERSION = '0.6'
 
 class Battle:
-    def __init__(self, title, roles, verbose, map_width=10, map_height=10):
+    def __init__(self, title, roles, verbose, map_width=10, map_height=10, turn_limit=100):
         self.title = title
         self.verbose = verbose
         self.fighters = []
         self.winner = None
         self.turn = 0
         self.logs = []
-        self.map = Map(map_width, map_height, 'hex')
+        self.map = Map(map_width, map_height, 'grid8')
+        self.turn_limit = turn_limit
 
         for role in roles:
             fighter = role['class'](role['name'], role['level'], role['ai'], role['faction'], role['weapon'], role['armor'], role['shield'])
@@ -25,17 +26,20 @@ class Battle:
 
     def add_fighter(self, fighter):
         self.fighters.append(fighter)
-        fighter.battle = self
-        # Assign a random starting position
-        x = random.randint(0, self.map.width - 1)
-        y = random.randint(0, self.map.height - 1)
-        position = self.map.get_position(x, y)
-        self.map.add_fighter(fighter, position)
+        fighter.battle = self  # Ensure fighter knows which battle they are part of
+        while True:
+            x = random.randint(0, self.map.width - 1)
+            y = random.randint(0, self.map.height - 1)
+            position = self.map.get_position(x, y)
+            if position and not position.fighter:  # Check if position is valid and unoccupied
+                self.map.occupy_position(fighter, position)
+                fighter.move_to(position)
+                break
 
     def remove_fighter(self, fighter):
         self.fighters.remove(fighter)
         fighter.battle = None
-        self.map.remove_fighter(fighter)
+        self.map.vacate_position(fighter)
 
     def move_fighter(self, fighter, new_position):
         self.map.move_fighter(fighter, new_position)
@@ -44,9 +48,12 @@ class Battle:
         self.log(f'{self.title} fighters:')
         for fighter in self.fighters:
             self.log(fighter)
-        while self.winner is None:
+        while self.winner is None and self.turn < self.turn_limit:
             self.play_round()
-        self.log(f'{self.winner} wins {self.title}!')
+        if self.winner:
+            self.log(f'{self.winner} wins {self.title}!')
+        else:
+            self.log(f'{self.title} ends in a draw after {self.turn_limit} turns!')
         return self.winner
 
     def play_round(self):
@@ -106,7 +113,8 @@ class Arena:
     def simulate_battle(self):
         for i in range(self.iterations):
             winner = Battle(f'Battle {i + 1}', self.roles, self.verbose).fight_battle()
-            self.wins[winner] += 1
+            if winner:
+                self.wins[winner] += 1
 
     def print_probabilities(self):
         print('Estimated Probabilities of Victory:')

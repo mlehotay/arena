@@ -3,8 +3,6 @@ import random
 from map import *
 from buff import *
 
-VERSION = '0.5'
-
 weapon_list = {
     None: (1, 2, 0),  # 1d2
     'axe': (1, 6, 0),  # 1d6
@@ -92,6 +90,11 @@ class Fighter:
         self.ai.take_turn(self)
 
     def attack(self, opponent):
+        # Check if the opponent is there and not dead
+        if opponent is None or opponent.health <= 0:
+            self.battle.log(f'{self.name} cannot attack because the opponent is not valid or is already dead.')
+            return
+
         # Check if attacker and opponent are adjacent
         if not self.battle.map.is_adjacent(self.position, opponent.position):
             self.battle.log(f'{self.name} cannot attack {opponent.name} because they are not adjacent.')
@@ -122,7 +125,6 @@ class Fighter:
             berserk_rage_buff = BuffCreator.create_berserk_rage()
             last_teammate.apply_buff(berserk_rage_buff)
             self.battle.log(f'{last_teammate.name} goes into a Berserk Rage!')
-        self.battle.map.remove_fighter(self)
         self.battle.fighters.remove(self)
         self.battle = None
 
@@ -148,7 +150,7 @@ class Fighter:
         self.battle.log(f'{self.name} gains buff: {buff.name}')
 
     def move_to(self, position: Position):
-        if self.battle:
+        if self.battle and self.position:
             if self.battle.map:
                 if self.battle.map.is_position_occupied(position):
                     self.battle.log(f"{self.name} cannot move to {position}, position is occupied.")

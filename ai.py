@@ -1,5 +1,6 @@
 # ai.py
 from fighter import *
+import random
 
 class BaseAI:
     @staticmethod
@@ -9,7 +10,10 @@ class BaseAI:
     @staticmethod
     def move_towards(fighter, target_position):
         new_position = fighter.battle.map.move_towards(fighter.position, target_position)
-        fighter.move_to(new_position)
+        if not fighter.battle.map.is_position_occupied(new_position):
+            fighter.move_to(new_position)
+        else:
+            print(f"{fighter.name} cannot move to {new_position}, position is occupied.")
 
     @staticmethod
     def attack(fighter, target):
@@ -19,17 +23,36 @@ class BaseAI:
         else:
             BaseAI.move_towards(fighter, target.position)
 
+    @staticmethod
+    def find_nearest_enemy(fighter):
+        opponents = [f for f in fighter.battle.fighters if f.faction != fighter.faction]
+        if not opponents:
+            return None
+        closest_enemy = min(opponents, key=lambda f: fighter.battle.map.calculate_distance(fighter.position, f.position))
+        return closest_enemy
+
 class RandomAttackAI(BaseAI):
     @staticmethod
     def take_turn(fighter):
-        opponents = [f for f in fighter.battle.fighters if f.faction != fighter.faction]
-        if opponents:
-            target = random.choice(opponents)
+        neighbors = fighter.battle.map.get_neighbors(fighter.position)
+        for neighbor in neighbors:
+            if neighbor.fighter and neighbor.fighter.faction != fighter.faction:
+                BaseAI.attack(fighter, neighbor.fighter)
+                return
+
+        target = BaseAI.find_nearest_enemy(fighter)
+        if target:
             BaseAI.attack(fighter, target)
 
 class LowestHealthAI(BaseAI):
     @staticmethod
     def take_turn(fighter):
+        neighbors = fighter.battle.map.get_neighbors(fighter.position)
+        for neighbor in neighbors:
+            if neighbor.fighter and neighbor.fighter.faction != fighter.faction:
+                BaseAI.attack(fighter, neighbor.fighter)
+                return
+
         opponents = [f for f in fighter.battle.fighters if f.faction != fighter.faction]
         if opponents:
             target = min(opponents, key=lambda x: x.health)
@@ -38,6 +61,12 @@ class LowestHealthAI(BaseAI):
 class GreatestThreatAI(BaseAI):
     @staticmethod
     def take_turn(fighter):
+        neighbors = fighter.battle.map.get_neighbors(fighter.position)
+        for neighbor in neighbors:
+            if neighbor.fighter and neighbor.fighter.faction != fighter.faction:
+                BaseAI.attack(fighter, neighbor.fighter)
+                return
+
         opponents = [f for f in fighter.battle.fighters if f.faction != fighter.faction]
         if opponents:
             target = max(opponents, key=lambda x: GreatestThreatAI.calculate_threat(x))
@@ -57,6 +86,12 @@ class DefensiveAI(BaseAI):
 
     @staticmethod
     def take_turn(fighter):
+        neighbors = fighter.battle.map.get_neighbors(fighter.position)
+        for neighbor in neighbors:
+            if neighbor.fighter and neighbor.fighter.faction != fighter.faction:
+                BaseAI.attack(fighter, neighbor.fighter)
+                return
+
         if fighter.health < fighter.max_health / 4:
             DefensiveAI.deadlock_counter += 1
             if DefensiveAI.deadlock_counter >= DefensiveAI.deadlock_threshold:
@@ -71,6 +106,12 @@ class DefensiveAI(BaseAI):
 class RangedAttackAI(BaseAI):
     @staticmethod
     def take_turn(fighter):
+        neighbors = fighter.battle.map.get_neighbors(fighter.position)
+        for neighbor in neighbors:
+            if neighbor.fighter and neighbor.fighter.faction != fighter.faction:
+                BaseAI.attack(fighter, neighbor.fighter)
+                return
+
         opponents = [f for f in fighter.battle.fighters if f.faction != fighter.faction]
         if opponents:
             target = random.choice(opponents)
