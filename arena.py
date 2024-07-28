@@ -1,13 +1,13 @@
-# battle.py
+# arena.py
 import random
-from fighter import Fighter
 from ai import *
+from fighter import Fighter
 from map import Map
 
 VERSION = '0.6'
 
 class Battle:
-    def __init__(self, title, roles, verbose, map_width=10, map_height=10, turn_limit=100):
+    def __init__(self, title, roles, verbose=False, map_width=10, map_height=10, turn_limit=100):
         self.title = title
         self.verbose = verbose
         self.fighters = []
@@ -81,7 +81,7 @@ class Battle:
                 if 0 <= x < self.map.width and 0 <= y < self.map.height:
                     map_grid[y][x] = fighter.name[0]
         map_display = '\n'.join([' '.join(row) for row in map_grid])
-        print(map_display)
+        self.log(map_display)
 
     def resolve_ranged_attack(self, attacker, target):
         distance = self.map.calculate_distance(attacker.position, target.position)
@@ -139,4 +139,4 @@ class Game:
         battle.simulate_battle()
         battle.print_probabilities()
 
-Game().run()
+# Game().run()

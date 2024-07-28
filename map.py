@@ -4,21 +4,21 @@ import heapq
 from typing import List, Tuple, Dict
 
 # Position and Terrain classes for spatial mechanics
-class TerrainType(Enum):
+class Terrain(Enum):
     PLAIN = 1
     FOREST = 2
     MOUNTAIN = 3
     WATER = 4
 
 TERRAIN_COSTS = {
-    TerrainType.PLAIN: 1,
-    TerrainType.FOREST: 2,
-    TerrainType.MOUNTAIN: 3,
-    TerrainType.WATER: float('inf')  # Impassable
+    Terrain.PLAIN: 1,
+    Terrain.FOREST: 2,
+    Terrain.MOUNTAIN: 3,
+    Terrain.WATER: float('inf')  # Impassable
 }
 
 class Position:
-    def __init__(self, x, y, map_type='grid8', terrain=TerrainType.PLAIN):
+    def __init__(self, x, y, map_type, terrain=Terrain.PLAIN):
         self.x = x
         self.y = y
         self.map_type = map_type
@@ -39,113 +39,102 @@ class Position:
     def __lt__(self, other):
         return (self.x, self.y) < (other.x, other.y)
 
-GRID4_NEIGHBORS: List[Tuple[int, int]] = [(0, 1), (1, 0), (0, -1), (-1, 0)]
-GRID8_NEIGHBORS: List[Tuple[int, int]] = [(0, 1), (1, 1), (1, 0), (1, -1), (0, -1), (-1, -1), (-1, 0), (-1, 1)]
-HEX_NEIGHBORS: List[Tuple[int, int]] = [(1, 0), (1, -1), (0, -1), (-1, 0), (-1, 1), (0, 1)]
-
 class Map:
-    def __init__(self, width: int, height: int, map_type: str = 'grid8'):
+    def __init__(self, width, height, map_type='grid8'):
         self.width = width
         self.height = height
         self.map_type = map_type
-        self.grid = [[Position(x, y, map_type) for y in range(height)] for x in range(width)]
-
-    def set_terrain(self, x: int, y: int, terrain: TerrainType):
-        self.grid[x][y].terrain = terrain
+        self.grid = [[Position(x, y, map_type, Terrain.PLAIN) for y in range(height)] for x in range(width)]
 
     def get_position(self, x, y):
         if 0 <= x < self.width and 0 <= y < self.height:
             return self.grid[x][y]
-        else:
-            return None
+        return None
 
-    def occupy_position(self, fighter: 'Fighter', position: Position):
-        if self.is_valid_position(position) and position.fighter is None:
-            position.fighter = fighter
-            fighter.position = position
-        else:
-            raise ValueError("Position is invalid or already occupied.")
+    def set_terrain(self, x, y, terrain):
+        pos = self.get_position(x, y)
+        if pos:
+            pos.terrain = terrain
 
-    def vacate_position(self, position: Position):
-        if self.is_valid_position(position) and self.is_position_occupied(position):
-            position.fighter.position = None
-            position.fighter = None
-        else:
-            raise ValueError("Position is invalid or not occupied.")
+    def occupy_position(self, fighter, pos):
+        if pos and pos.fighter is None:
+            pos.fighter = fighter
+            fighter.position = pos
 
-    def move_fighter(self, fighter: 'Fighter', new_position: Position):
-        if self.is_valid_position(new_position) and new_position.fighter is None:
+    def vacate_position(self, pos):
+        if pos and pos.fighter:
+            pos.fighter.position = None
+            pos.fighter = None
+
+    def move_fighter(self, fighter, new_pos):
+        if fighter.position:
             self.vacate_position(fighter.position)
-            self.occupy_position(fighter, new_position)
-        else:
-            raise ValueError("New position is invalid or occupied.")
+        self.occupy_position(fighter, new_pos)
+
+    def calculate_distance(self, pos1, pos2):
+        if self.map_type == 'grid4':
+            return abs(pos1.x - pos2.x) + abs(pos1.y - pos2.y)
+        elif self.map_type == 'grid8':
+            return max(abs(pos1.x - pos2.x), abs(pos1.y - pos2.y))
+        elif self.map_type == 'hex':
+            return (abs(pos1.x - pos2.x) + abs(pos1.x + pos1.y - pos2.x - pos2.y) + abs(pos1.y - pos2.y)) // 2
+
+    def is_within_range(self, start_pos, end_pos, range):
+        return self.calculate_distance(start_pos, end_pos) <= range
+
+    def is_adjacent(self, pos1, pos2):
+        if self.map_type == 'grid8':
+            return max(abs(pos1.x - pos2.x), abs(pos1.y - pos2.y)) == 1
+        elif self.map_type == 'grid4':
+            return abs(pos1.x - pos2.x) + abs(pos1.y - pos2.y) == 1
+        elif self.map_type == 'hex':
+            return (abs(pos1.x - pos2.x) + abs(pos1.x + pos1.y - pos2.x - pos2.y) + abs(pos1.y - pos2.y)) // 2 == 1
+
+    def get_neighbors(self, pos):
+        neighbors = []
+        if self.map_type == 'grid8':
+            deltas = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
+        elif self.map_type == 'grid4':
+            deltas = [(-1, 0), (0, -1), (0, 1), (1, 0)]
+        elif self.map_type == 'hex':
+            deltas = [(-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0)]
+
+        for dx, dy in deltas:
+            neighbor = self.get_position(pos.x + dx, pos.y + dy)
+            if neighbor:
+                neighbors.append(neighbor)
+
+        return neighbors
+
+    def move_towards(self, start_pos, target_pos):
+        dx = target_pos.x - start_pos.x
+        dy = target_pos.y - start_pos.y
+
+        if self.map_type in ['grid4', 'grid8']:
+            if abs(dx) > abs(dy):
+                new_x = start_pos.x + (1 if dx > 0 else -1)
+                new_y = start_pos.y
+            elif abs(dx) < abs(dy):
+                new_x = start_pos.x
+                new_y = start_pos.y + (1 if dy > 0 else -1)
+            else:
+                new_x = start_pos.x + (1 if dx > 0 else -1)
+                new_y = start_pos.y + (1 if dy > 0 else -1)
+        elif self.map_type == 'hex':
+            if abs(dx) >= abs(dy):
+                new_x = start_pos.x + (1 if dx > 0 else -1)
+                new_y = start_pos.y + (1 if dy > 0 else -1)
+            else:
+                new_x = start_pos.x + (1 if dx > 0 else -1)
+                new_y = start_pos.y + (1 if dy > 0 else -1)
+
+        return self.get_position(new_x, new_y)
 
     def is_position_occupied(self, position):
         return position and position.fighter is not None
 
     def is_valid_position(self, position: Position) -> bool:
         return position is not None and 0 <= position.x < self.width and 0 <= position.y < self.height
-
-    def calculate_distance(self, pos1: Position, pos2: Position) -> int:
-        if pos1 is None or pos2 is None:
-            raise ValueError("Positions cannot be None.")
-        if pos1.map_type != pos2.map_type:
-            raise ValueError("Positions must be on the same type of map.")
-
-        if pos1.map_type == 'grid4': # Manhattan distance
-            return abs(pos1.x - pos2.x) + abs(pos1.y - pos2.y)
-        elif pos1.map_type == 'hex': # axial distance
-            return (abs(pos1.x - pos2.x) + abs(pos1.x + pos1.y - pos2.x - pos2.y) + abs(pos1.y - pos2.y)) // 2
-        elif pos1.map_type == 'grid8': # Chebyshev distance
-            return max(abs(pos1.x - pos2.x), abs(pos1.y - pos2.y))
-        else:
-            raise ValueError(f"Unknown map type: {pos1.map_type}")
-
-    def is_within_range(self, start: Position, end: Position, range_limit: int) -> bool:
-        return self.calculate_distance(start, end) <= range_limit
-
-    def is_adjacent(self, pos1: Position, pos2: Position) -> bool:
-        return self.calculate_distance(pos1, pos2) <= 1
-
-    def get_neighbors(self, position: Position) -> List[Position]:
-        neighbors = []
-        if position.map_type == 'grid4':
-            for dx, dy in GRID4_NEIGHBORS:
-                nx, ny = position.x + dx, position.y + dy
-                if self.is_valid_position(self.get_position(nx, ny)):
-                    neighbors.append(self.get_position(nx, ny))
-        elif position.map_type == 'hex':
-            for dx, dy in HEX_NEIGHBORS:
-                nx, ny = position.x + dx, position.y + dy
-                if self.is_valid_position(self.get_position(nx, ny)):
-                    neighbors.append(self.get_position(nx, ny))
-        elif position.map_type == 'grid8':
-            for dx, dy in GRID8_NEIGHBORS:
-                nx, ny = position.x + dx, position.y + dy
-                if self.is_valid_position(self.get_position(nx, ny)):
-                    neighbors.append(self.get_position(nx, ny))
-        return neighbors
-
-    def move_towards(self, start_pos: Position, target_pos: Position) -> Position:
-        x1, y1 = start_pos.x, start_pos.y
-        x2, y2 = target_pos.x, target_pos.y
-
-        if x1 < x2:
-            new_x = x1 + 1
-        elif x1 > x2:
-            new_x = x1 - 1
-        else:
-            new_x = x1
-
-        if y1 < y2:
-            new_y = y1 + 1
-        elif y1 > y2:
-            new_y = y1 - 1
-        else:
-            new_y = y1
-
-        new_pos = self.get_position(new_x, new_y)
-        return new_pos if self.is_valid_position(new_pos) else start_pos
 
     def heuristic(self, a: Position, b: Position) -> int:
         return self.calculate_distance(a, b)
