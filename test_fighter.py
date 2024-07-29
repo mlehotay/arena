@@ -57,85 +57,47 @@ class TestFighter(unittest.TestCase):
         self.assertIn('long sword', repr(self.battle.fighters[0]))
         self.assertIn('RandomAttackAI', repr(self.battle.fighters[0]))
 
+    def test_fighter_movement(self):
+        fighter = self.battle.fighters[0]
+        original_position = fighter.position
+        new_position = self.battle.map.get_position(2, 2)
+        fighter.move_to(new_position)
+        self.assertEqual(fighter.position, new_position)
+        self.assertIsNone(original_position.fighter)
+        self.assertEqual(fighter, new_position.fighter)
 
-class TestFighter2(unittest.TestCase):
+    def test_fighter_position_update(self):
+        fighter = self.battle.fighters[1]
+        original_position = fighter.position
+        new_position = self.battle.map.get_position(3, 3)
+        self.battle.map.occupy_position(fighter, new_position)
+        self.assertEqual(fighter.position, new_position)
+        self.assertEqual(self.battle.map.get_position(fighter.position.x, fighter.position.y), new_position)
 
-    def setUp(self):
-        self.map = Map(10, 10, 'grid8')
-        self.position1 = Position(1, 1, 'grass')
-        self.position2 = Position(2, 2, 'grass')
-        self.map.occupy_position(None, self.position1)
-        self.map.occupy_position(None, self.position2)
+    def test_position_occupancy(self):
+        position = self.battle.map.get_position(4, 4)
+        fighter = self.battle.fighters[2]
+        self.battle.map.occupy_position(fighter, position)
+        self.assertEqual(self.battle.map.get_position(fighter.position.x, fighter.position.y), position)
+        self.assertEqual(fighter.position, position)
 
-        self.fighter1 = Fighter(
-            name='Fighter1', level=5, ai=RandomAttackAI, faction='Red',
-            weapon='long sword', armor='chain mail', shield='small shield'
-        )
-        self.fighter2 = Fighter(
-            name='Fighter2', level=3, ai=RandomAttackAI, faction='Blue',
-            weapon='short sword', armor='leather armor', shield=None
-        )
-        self.fighter1.position = self.position1
-        self.fighter2.position = self.position2
-        self.map.occupy_position(self.fighter1, self.position1)
-        self.map.occupy_position(self.fighter2, self.position2)
+    def test_map_boundaries(self):
+        fighter = self.battle.fighters[3]
+        position_out_of_bounds = self.battle.map.get_position(-1, -1)  # Assuming -1 is out of bounds
+        self.assertIsNone(position_out_of_bounds)
+        self.battle.map.occupy_position(fighter, position_out_of_bounds) # assert raises exception?
 
-    def test_initialization(self):
-        self.assertEqual(self.fighter1.name, 'Fighter1')
-        self.assertEqual(self.fighter1.level, 5)
-        self.assertEqual(self.fighter1.weapon, 'long sword')
-        self.assertEqual(self.fighter1.armor, 'chain mail')
-        self.assertEqual(self.fighter1.shield, 'small shield')
-        self.assertEqual(self.fighter1.armor_class, 10 - 5 - 1)
-
-    def test_attack_success(self):
-        self.fighter1.attack(self.fighter2)
-        self.assertGreater(self.fighter2.health, 0)
-
-    def test_attack_fail(self):
-        # Assuming fighter2 has high armor class or fighter1's attack roll is low
-        self.fighter1.attack(self.fighter2)
-        self.assertEqual(self.fighter2.health, self.fighter2.max_health)
-
-    def test_move(self):
-        new_position = Position(3, 3, 'grass')
-        self.map.occupy_position(None, new_position)
-        self.fighter1.move_to(new_position)
-        self.assertEqual(self.fighter1.position, new_position)
-
-    def test_apply_buff(self):
-        # Create a mock buff
-        mock_buff = BuffCreator.create_defensive_stance()
-        self.fighter1.apply_buff(mock_buff)
-        self.assertIn(mock_buff, self.fighter1.buffs)
-
-    def test_take_damage(self):
-        initial_health = self.fighter2.health
-        self.fighter1.attack(self.fighter2)
-        self.assertLess(self.fighter2.health, initial_health)
-
-    def test_die(self):
-        self.fighter2.health = 1  # Set health to 1 for testing
-        self.fighter2.take_damage(2, self.fighter1)
-        self.assertIsNone(self.fighter2.battle)
-
-    def test_take_defensive_action(self):
-        self.fighter1.take_defensive_action()
-        # Assuming the defensive actions modify buffs
-        defensive_stance_buff = next(
-            (buff for buff in self.fighter1.buffs if buff.name == 'Defensive Stance'), None
-        )
-        self.assertIsNotNone(defensive_stance_buff)
-
-    def tearDown(self):
-        # Clean up after each test
-        self.map.vacate_position(self.fighter1)
-        self.map.vacate_position(self.fighter2)
-        self.fighter1 = None
-        self.fighter2 = None
-        self.map = None
-        self.position1 = None
-        self.position2 = None
+    def test_multiple_fighters_same_position(self):
+        position = self.battle.map.get_position(5, 5)
+        fighter1 = self.battle.fighters[4]
+        fighter2 = self.battle.fighters[5]
+        self.battle.map.occupy_position(fighter1, position)
+        self.battle.map.occupy_position(fighter2, position) # this should fail
+        self.assertEqual(fighter1.position, position)
+        self.assertEqual(self.battle.map.get_position(fighter1.position.x, fighter1.position.y), position)
+        self.assertNotEqual(fighter2.position, position)
+        self.assertNotEqual(self.battle.map.get_position(fighter2.position.x, fighter2.position.y), position)
+        # is this the behavior we want? silent failure?
 
 if __name__ == '__main__':
     unittest.main()

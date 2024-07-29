@@ -107,7 +107,7 @@ class Fighter:
             (dice, sides, addend) = weapon_list[self.weapon]
             damage = roll(dice, sides) + addend + self.damage_bonus
             opponent.take_damage(damage, self)
-            self.battle.log(f'{self.name} attacks {opponent.name} for {damage} damage!')
+            # self.battle.log(f'{self.name} attacks {opponent.name} for {damage} damage!')
         else:
             self.battle.log(f'{self.name} misses {opponent.name}')
 
@@ -125,7 +125,7 @@ class Fighter:
             berserk_rage_buff = BuffCreator.create_berserk_rage()
             last_teammate.apply_buff(berserk_rage_buff)
             self.battle.log(f'{last_teammate.name} goes into a Berserk Rage!')
-        self.battle.fighters.remove(self)
+        self.battle.remove_fighter(self)
         self.battle = None
 
     def take_defensive_action(self):
@@ -151,13 +151,12 @@ class Fighter:
 
     def move_to(self, position: Position):
         if self.battle and self.position:
-            if self.battle.map:
-                if self.battle.map.is_position_occupied(position):
-                    self.battle.log(f"{self.name} cannot move to {position}, position is occupied.")
-                    return
-                terrain_cost = TERRAIN_COSTS.get(position.terrain, 1)
-                self.position = position
-                self.battle.log(f'{self.name} moves to {position} with terrain cost {terrain_cost}')
+            if self.battle.map.is_position_occupied(position):
+                self.battle.log(f"{self.name} cannot move to {position}, position is occupied.")
+                return
+            terrain_cost = TERRAIN_COSTS.get(position.terrain, 1)
+            self.battle.map.move_fighter(self, position)
+            self.battle.log(f'{self.name} moves to {position} with terrain cost {terrain_cost}')
 
     def equip_ranged_weapon(self, weapon):
         self.ranged_weapon = weapon

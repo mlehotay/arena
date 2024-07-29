@@ -39,10 +39,7 @@ class Battle:
     def remove_fighter(self, fighter):
         self.fighters.remove(fighter)
         fighter.battle = None
-        self.map.vacate_position(fighter)
-
-    def move_fighter(self, fighter, new_position):
-        self.map.move_fighter(fighter, new_position)
+        self.map.vacate_position(fighter.position)
 
     def fight_battle(self):
         self.log(f'{self.title} fighters:')
@@ -139,4 +136,4 @@ class Game:
         battle.simulate_battle()
         battle.print_probabilities()
 
-# Game().run()
+Game().run()

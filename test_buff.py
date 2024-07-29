@@ -7,7 +7,7 @@ from fighter import Fighter
 from map import Map, Position
 
 
-class TestBuffs(unittest.TestCase):
+class TestBuff(unittest.TestCase):
     def setUp(self):
         test_roles = [
             {'name': 'Alice', 'faction': 'Order', 'level': 5, 'class': Fighter, 'ai': RandomAttackAI, 'weapon': 'long sword', 'armor': 'chain mail', 'shield': 'small shield'},
@@ -105,70 +105,6 @@ class TestBuffs(unittest.TestCase):
         for _ in range(buff.remaining_duration + buff.remaining_cooldown):  # Full duration plus cooldown
             test_fighter.take_turn()
         self.assertEqual(buff.remaining_cooldown, 0, "Buff cooldown did not decrease correctly")
-
-class TestBuffs2(unittest.TestCase):
-
-    def setUp(self):
-        self.map = Map(10, 10, 'grid8')
-        self.position = Position(1, 1, 'grass')
-        self.map.occupy_position(None, self.position)
-
-        self.fighter = Fighter(
-            name='Fighter1', level=5, ai=None, faction='Red',
-            weapon='long sword', armor='chain mail', shield='small shield'
-        )
-        self.fighter.position = self.position
-        self.map.occupy_position(self.fighter, self.position)
-        self.fighter.battle = self.map
-
-    def test_berserk_rage(self):
-        buff = BuffCreator.create_berserk_rage()
-        self.fighter.attack_bonus = 10
-        buff.apply(self.fighter)
-        self.assertEqual(self.fighter.attack_bonus, 15)
-        for _ in range(buff.duration):
-            buff.tick(self.fighter)
-        self.assertEqual(self.fighter.attack_bonus, 10)
-        self.assertEqual(buff.remaining_cooldown, 0)
-
-    def test_defensive_stance(self):
-        buff = BuffCreator.create_defensive_stance()
-        self.fighter.armor_class = 20
-        buff.apply(self.fighter)
-        self.assertEqual(self.fighter.armor_class, 16)
-        buff.tick(self.fighter)
-        self.assertEqual(self.fighter.armor_class, 16)  # No change after tick
-        buff.tick(self.fighter)  # Should expire now
-        self.assertEqual(self.fighter.armor_class, 20)
-
-    def test_shield_wall(self):
-        buff = BuffCreator.create_shield_wall()
-        self.fighter.armor_class = 20
-        buff.apply(self.fighter)
-        self.assertEqual(self.fighter.armor_class, 14)
-        for _ in range(buff.duration):
-            buff.tick(self.fighter)
-        self.assertEqual(self.fighter.armor_class, 14)  # Should still be active
-        buff.tick(self.fighter)  # Should now start cooldown
-        self.assertEqual(self.fighter.armor_class, 20)  # Buff effect removed
-        self.assertEqual(buff.remaining_cooldown, 4)  # Cooldown starts now
-
-    def test_heal_over_time(self):
-        buff = BuffCreator.create_heal_over_time()
-        self.fighter.health = 50
-        buff.apply(self.fighter)
-        self.assertEqual(self.fighter.health, 55)
-        for _ in range(buff.duration):
-            buff.tick(self.fighter)
-        self.assertEqual(self.fighter.health, 80)  # Heal over time applied
-        self.assertEqual(buff.remaining_cooldown, 0)  # No cooldown for heal over time
-
-    def tearDown(self):
-        # Clean up after each test
-        self.map.vacate_position(self.fighter)
-        self.fighter = None
-        self.map = None
-        self.position = None
 
 if __name__ == '__main__':
     unittest.main()

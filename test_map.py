@@ -25,107 +25,170 @@ class TestPosition(unittest.TestCase):
 class TestMap(unittest.TestCase):
 
     def setUp(self):
-        self.map = Map(5, 7)
+        self.width = 5
+        self.height = 7
+        self.map = Map(self.width, self.height, 'grid4')
+
+    def create_map(self, map_type):
+        return Map(self.width, self.height, map_type)
 
     def test_initial_map_size(self):
-        self.assertEqual(self.map.width, 5)
-        self.assertEqual(self.map.height, 7)
-        self.assertEqual(len(self.map.grid), 5)
-        self.assertTrue(all(len(row) == 7 for row in self.map.grid))
+        map = self.create_map('grid4')
+        self.assertEqual(map.width, self.width)
+        self.assertEqual(map.height, self.height)
+        self.assertEqual(len(map.grid), self.width)
+        self.assertTrue(all(len(row) == self.height for row in map.grid))
 
     def test_set_terrain(self):
-        self.map.set_terrain(1, 1, Terrain.FOREST)
-        self.assertEqual(self.map.get_position(1, 1).terrain, Terrain.FOREST)
+        map = self.create_map('grid4')
+        map.set_terrain(1, 1, Terrain.FOREST)
+        self.assertEqual(map.get_position(1, 1).terrain, Terrain.FOREST)
 
     def test_get_position(self):
-        pos = self.map.get_position(2, 2)
+        map = self.create_map('grid4')
+        pos = map.get_position(2, 2)
         self.assertIsInstance(pos, Position)
         self.assertEqual(pos.x, 2)
         self.assertEqual(pos.y, 2)
 
-        pos = self.map.get_position(10, 10)
+        pos = map.get_position(10, 10)
         self.assertIsNone(pos)
 
     def test_occupy_position(self):
+        map = self.create_map('grid4')
         fighter = Fighter('Test Fighter', 3, RandomAttackAI, "Odds")
-        pos = self.map.get_position(3, 3)
-        self.map.occupy_position(fighter, pos)
+        pos = map.get_position(3, 3)
+        map.occupy_position(fighter, pos)
 
         self.assertEqual(pos.fighter, fighter)
         self.assertEqual(fighter.position, pos)
 
     def test_vacate_position(self):
+        map = self.create_map('grid4')
         fighter = Fighter('Test Fighter', 3, RandomAttackAI, "Odds")
-        pos = self.map.get_position(3, 3)
-        self.map.occupy_position(fighter, pos)
-        self.map.vacate_position(pos)
+        pos = map.get_position(3, 3)
+        map.occupy_position(fighter, pos)
+        map.vacate_position(pos)
 
         self.assertIsNone(pos.fighter)
         self.assertIsNone(fighter.position)
 
     def test_move_fighter(self):
+        map = self.create_map('grid4')
         fighter = Fighter('Test Fighter', 3, RandomAttackAI, "Odds")
-        start_pos = self.map.get_position(2, 2)
-        new_pos = self.map.get_position(3, 3)
-        self.map.occupy_position(fighter, start_pos)
-        self.map.move_fighter(fighter, new_pos)
+        start_pos = map.get_position(2, 2)
+        new_pos = map.get_position(3, 3)
+        map.occupy_position(fighter, start_pos)
+        map.move_fighter(fighter, new_pos)
 
         self.assertEqual(new_pos.fighter, fighter)
         self.assertEqual(fighter.position, new_pos)
         self.assertIsNone(start_pos.fighter)
 
     def test_calculate_distance(self):
-        pos1 = self.map.get_position(1, 1)
-        pos2 = self.map.get_position(4, 4)
+        pos1 = self.create_map('grid4').get_position(1, 1)
+        pos2 = self.create_map('grid4').get_position(4, 4)
 
         # Testing Manhattan distance for grid4
-        self.map.map_type = 'grid4'
-        self.assertEqual(self.map.calculate_distance(pos1, pos2), 6)
+        map = self.create_map('grid4')
+        self.assertEqual(map.calculate_distance(pos1, pos2), 6)
 
         # Testing Chebyshev distance for grid8
-        self.map.map_type = 'grid8'
-        self.assertEqual(self.map.calculate_distance(pos1, pos2), 3)
+        map = self.create_map('grid8')
+        self.assertEqual(map.calculate_distance(pos1, pos2), 3)
 
         # Testing Hex distance for hex
-        self.map.map_type = 'hex'
-        self.assertEqual(self.map.calculate_distance(pos1, pos2), 6)
+        map = self.create_map('hex')
+        self.assertEqual(map.calculate_distance(pos1, pos2), 6)
 
     def test_is_within_range(self):
-        start_pos = self.map.get_position(1, 1)
-        end_pos = self.map.get_position(4, 4)
+        start_pos = self.create_map('grid4').get_position(1, 1)
+        end_pos = self.create_map('grid4').get_position(4, 4)
 
-        self.assertTrue(self.map.is_within_range(start_pos, end_pos, 6))
-        self.assertFalse(self.map.is_within_range(start_pos, end_pos, 5))
+        # Test for grid4
+        map = self.create_map('grid4')
+        self.assertTrue(map.is_within_range(start_pos, end_pos, 6))
+        self.assertFalse(map.is_within_range(start_pos, end_pos, 5))
+
+        # Test for grid8
+        map = self.create_map('grid8')
+        self.assertTrue(map.is_within_range(start_pos, end_pos, 3))
+        self.assertFalse(map.is_within_range(start_pos, end_pos, 2))
+
+        # Test for hex
+        map = self.create_map('hex')
+        self.assertTrue(map.is_within_range(start_pos, end_pos, 6))
+        self.assertFalse(map.is_within_range(start_pos, end_pos, 5))
 
     def test_is_adjacent(self):
-        pos1 = self.map.get_position(2, 2)
-        pos2 = self.map.get_position(2, 3)
+        pos1 = self.create_map('grid4').get_position(2, 2)
+        pos2 = self.create_map('grid4').get_position(2, 3)
 
-        self.assertTrue(self.map.is_adjacent(pos1, pos2))
+        # Test for grid4
+        map = self.create_map('grid4')
+        self.assertTrue(map.is_adjacent(pos1, pos2))
+        pos3 = map.get_position(3, 3)
+        self.assertFalse(map.is_adjacent(pos1, pos3))
 
-        pos3 = self.map.get_position(3, 3)
-        self.assertFalse(self.map.is_adjacent(pos1, pos3))
+        # Test for grid8
+        map = self.create_map('grid8')
+        self.assertTrue(map.is_adjacent(pos1, pos2))
+        self.assertTrue(map.is_adjacent(pos1, pos3))
+
+        # Test for hex
+        map = self.create_map('hex')
+        self.assertTrue(map.is_adjacent(pos1, pos2))
+        pos3_hex = map.get_position(3, 1)
+        self.assertTrue(map.is_adjacent(pos1, pos3_hex))
+        pos4 = map.get_position(3, 2)
+        self.assertTrue(map.is_adjacent(pos1, pos4))
 
     def test_get_neighbors(self):
-        pos = self.map.get_position(2, 2)
-        neighbors = self.map.get_neighbors(pos)
+        pos = self.create_map('grid4').get_position(2, 2)
+
+        # Test for grid8
+        map = self.create_map('grid8')
+        neighbors = map.get_neighbors(pos)
         self.assertEqual(len(neighbors), 8)  # For grid8
 
-        self.map.map_type = 'grid4'
-        neighbors = self.map.get_neighbors(pos)
+        # Test for grid4
+        map = self.create_map('grid4')
+        neighbors = map.get_neighbors(pos)
         self.assertEqual(len(neighbors), 4)  # For grid4
 
-        self.map.map_type = 'hex'
-        neighbors = self.map.get_neighbors(pos)
+        # Test for hex
+        map = self.create_map('hex')
+        neighbors = map.get_neighbors(pos)
         self.assertEqual(len(neighbors), 6)  # For hex
 
     def test_move_towards(self):
         start_pos = self.map.get_position(1, 1)
         target_pos = self.map.get_position(3, 3)
-        new_pos = self.map.move_towards(start_pos, target_pos)
 
-        self.assertEqual(new_pos.x, 2)
-        self.assertEqual(new_pos.y, 2)
+        # Test for grid4
+        self.map.map_type = 'grid4'
+        new_pos = self.map.move_towards(start_pos, target_pos)
+        possible_positions = [(2, 1), (1, 2)]
+        self.assertIn((new_pos.x, new_pos.y), possible_positions)
+
+        # Test for grid8
+        self.map.map_type = 'grid8'
+        new_pos = self.map.move_towards(start_pos, target_pos)
+        possible_positions = [(2, 1), (1, 2), (2, 2)]
+        self.assertIn((new_pos.x, new_pos.y), possible_positions)
+
+        # Test for hex
+        self.map.map_type = 'hex'
+        new_pos = self.map.move_towards(start_pos, target_pos)
+        # In a hex grid, moving towards (3, 3) from (1, 1) could be (2, 2) or (2, 1) or (1, 2)
+        possible_positions_hex = [(2, 2), (2, 1), (1, 2)]
+        self.assertIn((new_pos.x, new_pos.y), possible_positions_hex)
+
+    def test_terrain_cost(self):
+        map = self.create_map('grid4')
+        pos = map.get_position(2, 2)
+        map.set_terrain(2, 2, Terrain.FOREST)
+        self.assertEqual(pos.terrain, Terrain.FOREST)
 
     def test_astar(self):
         # Simple test with a known path

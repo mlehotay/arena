@@ -40,7 +40,7 @@ class Position:
         return (self.x, self.y) < (other.x, other.y)
 
 class Map:
-    def __init__(self, width, height, map_type='grid8'):
+    def __init__(self, width, height, map_type='grid4'):
         self.width = width
         self.height = height
         self.map_type = map_type
@@ -83,12 +83,7 @@ class Map:
         return self.calculate_distance(start_pos, end_pos) <= range
 
     def is_adjacent(self, pos1, pos2):
-        if self.map_type == 'grid8':
-            return max(abs(pos1.x - pos2.x), abs(pos1.y - pos2.y)) == 1
-        elif self.map_type == 'grid4':
-            return abs(pos1.x - pos2.x) + abs(pos1.y - pos2.y) == 1
-        elif self.map_type == 'hex':
-            return (abs(pos1.x - pos2.x) + abs(pos1.x + pos1.y - pos2.x - pos2.y) + abs(pos1.y - pos2.y)) // 2 == 1
+        return self.calculate_distance(pos1, pos2) == 1
 
     def get_neighbors(self, pos):
         neighbors = []
@@ -107,28 +102,50 @@ class Map:
         return neighbors
 
     def move_towards(self, start_pos, target_pos):
-        dx = target_pos.x - start_pos.x
-        dy = target_pos.y - start_pos.y
+        if self.map_type == 'grid4':
+            dx = target_pos.x - start_pos.x
+            dy = target_pos.y - start_pos.y
 
-        if self.map_type in ['grid4', 'grid8']:
             if abs(dx) > abs(dy):
                 new_x = start_pos.x + (1 if dx > 0 else -1)
                 new_y = start_pos.y
-            elif abs(dx) < abs(dy):
+            else:
                 new_x = start_pos.x
                 new_y = start_pos.y + (1 if dy > 0 else -1)
-            else:
+
+            return self.get_position(new_x, new_y)
+
+        elif self.map_type == 'grid8':
+            dx = target_pos.x - start_pos.x
+            dy = target_pos.y - start_pos.y
+
+            if dx != 0:
                 new_x = start_pos.x + (1 if dx > 0 else -1)
+            else:
+                new_x = start_pos.x
+
+            if dy != 0:
                 new_y = start_pos.y + (1 if dy > 0 else -1)
+            else:
+                new_y = start_pos.y
+
+            return self.get_position(new_x, new_y)
+
         elif self.map_type == 'hex':
-            if abs(dx) >= abs(dy):
+            # Hex grid movement logic
+            dx = target_pos.x - start_pos.x
+            dy = target_pos.y - start_pos.y
+
+            if abs(dx) > abs(dy):
                 new_x = start_pos.x + (1 if dx > 0 else -1)
-                new_y = start_pos.y + (1 if dy > 0 else -1)
+                new_y = start_pos.y
             else:
-                new_x = start_pos.x + (1 if dx > 0 else -1)
+                new_x = start_pos.x
                 new_y = start_pos.y + (1 if dy > 0 else -1)
 
-        return self.get_position(new_x, new_y)
+            return self.get_position(new_x, new_y)
+
+        return start_pos
 
     def is_position_occupied(self, position):
         return position and position.fighter is not None
