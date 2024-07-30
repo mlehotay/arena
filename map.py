@@ -45,6 +45,7 @@ class Map:
         self.height = height
         self.map_type = map_type
         self.grid = [[Position(x, y, map_type, Terrain.PLAIN) for y in range(height)] for x in range(width)]
+        self.refresh_needed = False
 
     def get_position(self, x, y):
         if 0 <= x < self.width and 0 <= y < self.height:
@@ -60,11 +61,13 @@ class Map:
         if pos and pos.fighter is None:
             pos.fighter = fighter
             fighter.position = pos
+            self.refresh_needed = True
 
     def vacate_position(self, pos):
         if pos and pos.fighter:
             pos.fighter.position = None
             pos.fighter = None
+            self.refresh_needed = True
 
     def move_fighter(self, fighter, new_pos):
         if fighter.position:

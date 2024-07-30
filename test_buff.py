@@ -1,7 +1,7 @@
 # test_buff.py
 import unittest
 from ai import *
-from arena import Battle, Arena
+from battle import Battle
 from buff import Buff, BuffCreator
 from fighter import Fighter
 from map import Map, Position

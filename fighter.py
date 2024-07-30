@@ -2,6 +2,7 @@
 import random
 from map import *
 from buff import *
+from weapon import RangedWeapon, ThrownWeapon
 
 weapon_list = {
     None: (1, 2, 0),  # 1d2
@@ -167,7 +168,15 @@ class Fighter:
 
     def throw_weapon(self, target):
         if isinstance(self.wielded_weapon, ThrownWeapon):
-            distance = self.position.distance_to(target.position)
+            distance = self.battle.map.calculate_distance(self.position, target.position)
             if distance <= self.wielded_weapon.damage:  # Assuming the range is tied to damage for simplicity
-                # Implement throwing logic here
-                pass
+                self.battle.log(f'{self.name} throws {self.wielded_weapon.name} at {target.name} for {self.wielded_weapon.damage} damage')
+                target.take_damage(self.wielded_weapon.damage, self)
+                self.wielded_weapon = None  # Weapon is used up
+
+    def attack_with_ranged_weapon(self, target):
+        if self.ranged_weapon and self.ranged_weapon.ammunition:
+            if self.ranged_weapon.fire(self, target, self.battle.map):
+                self.battle.log(f'{self.name} hits {target.name} with {self.ranged_weapon.name} for {self.ranged_weapon.damage} damage')
+            else:
+                self.battle.log(f'{self.name} misses {target.name} with {self.ranged_weapon.name}')

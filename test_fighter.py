@@ -2,7 +2,7 @@
 import unittest
 from fighter import Fighter
 from ai import GreatestThreatAI, LowestHealthAI, DefensiveAI, RandomAttackAI
-from arena import Battle, Arena
+from battle import Battle
 from buff import BuffCreator
 from map import Map, Position
 

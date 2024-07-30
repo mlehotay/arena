@@ -9,17 +9,23 @@ class BaseAI:
 
     @staticmethod
     def move_towards(fighter, target_position):
-        new_position = fighter.battle.map.move_towards(fighter.position, target_position)
-        if not fighter.battle.map.is_position_occupied(new_position):
-            fighter.move_to(new_position)
+        path = fighter.battle.map.astar(fighter.position, target_position)
+        if path:
+            next_position = path[1]  # The first position is the current position
+            if not fighter.battle.map.is_position_occupied(next_position):
+                fighter.move_to(next_position)
+            else:
+                print(f"{fighter.name} cannot move to {next_position}, position is occupied.")
         else:
-            print(f"{fighter.name} cannot move to {new_position}, position is occupied.")
+            print(f"{fighter.name} cannot find a path to {target_position}.")
 
     @staticmethod
     def attack(fighter, target):
         distance = fighter.battle.map.calculate_distance(fighter.position, target.position)
         if distance <= 1:
             fighter.attack(target)
+        elif fighter.ranged_weapon and distance <= fighter.ranged_weapon.range:
+            fighter.attack_with_ranged_weapon(target)
         else:
             BaseAI.move_towards(fighter, target.position)
 
@@ -115,8 +121,4 @@ class RangedAttackAI(BaseAI):
         opponents = [f for f in fighter.battle.fighters if f.faction != fighter.faction]
         if opponents:
             target = random.choice(opponents)
-            distance = fighter.battle.map.calculate_distance(fighter.position, target.position)
-            if distance <= fighter.weapon.range:
-                fighter.attack(target)
-            else:
-                BaseAI.move_towards(fighter, target.position)
+            BaseAI.attack(fighter, target)
