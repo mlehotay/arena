@@ -2,27 +2,7 @@
 import random
 from map import *
 from buff import *
-from weapon import RangedWeapon, ThrownWeapon
-
-weapon_list = {
-    None: (1, 2, 0),  # 1d2
-    'axe': (1, 6, 0),  # 1d6
-    'battle axe': (1, 8, 0),  # 1d8
-    'club': (1, 6, 0),
-    'dagger': (1, 4, 0),
-    'flail': (1, 6, 1),  # 1d6+1
-    'hammer': (1, 4, 1),
-    'mace': (1, 6, 1),
-    'morning star': (2, 4, 0),  # 2d4
-    'scimitar': (1, 8, 0),
-    'spear': (1, 6, 0),
-    'quarterstaff': (1, 6, 0),
-    'broad sword': (2, 4, 0),
-    'long sword': (1, 8, 0),
-    'short sword': (1, 6, 0),
-    'trident': (1, 6, 1),
-    'two-handed sword': (1, 10, 0)
-}
+from weapon import *
 
 armor_list = {
     None: 0,
@@ -58,9 +38,7 @@ class Fighter:
         self.health = self.max_health
         self.faction = faction
         self.position = None  # This will be set when the fighter is added to the map
-        self.weapon = weapon
-        self.ranged_weapon = None
-        self.wielded_weapon = None  # For spears and other wielded weapons
+        self.weapon = create_weapon(weapon)
         self.armor = armor
         self.shield = shield
         self.armor_class = 10 - armor_list[self.armor] - shield_list.get(self.shield, 0)
@@ -91,31 +69,31 @@ class Fighter:
         self.ai.take_turn(self)
 
     def attack(self, opponent):
-        # Check if the opponent is there and not dead
+        # Check if the opponent is present and not dead
         if opponent is None or opponent.health <= 0:
             self.battle.log(f'{self.name} cannot attack because the opponent is not valid or is already dead.')
             return
 
-        # Check if attacker and opponent are adjacent
-        if not self.battle.map.is_adjacent(self.position, opponent.position):
-            self.battle.log(f'{self.name} cannot attack {opponent.name} because they are not adjacent.')
+        # Check if target is within range
+        if not self.battle.map.is_within_range(self.position, opponent.position, self.weapon.range):
+            self.battle.log(f'{self.name} cannot attack {opponent.name} because they are out of range.')
             return
 
         attack_roll = roll(1, 20) + self.attack_bonus
         to_hit_target = 22 - opponent.armor_class - self.level
 
         if attack_roll >= to_hit_target:
-            (dice, sides, addend) = weapon_list[self.weapon]
-            damage = roll(dice, sides) + addend + self.damage_bonus
+            damage_dice, damage_size, bonus_damage, _ = weapon_list[self.weapon.name]
+            damage = roll(self.weapon.dice, self.weapon.sides) + self.weapon.addend + self.damage_bonus
             opponent.take_damage(damage, self)
-            # self.battle.log(f'{self.name} attacks {opponent.name} for {damage} damage!')
+            # self.battle.log(f'{self.name} attacks {opponent.name} with {self.weapon.name} for {damage} damage!')
         else:
             self.battle.log(f'{self.name} misses {opponent.name}')
 
     def take_damage(self, damage, attacker):
         self.battle.log(f'{attacker.name} attacks {self.name} for {damage} damage!')
         self.health -= damage
-        if self.health < 1:
+        if self.health <= 0:
             self.die()
 
     def die(self):
@@ -158,25 +136,3 @@ class Fighter:
             terrain_cost = TERRAIN_COSTS.get(position.terrain, 1)
             self.battle.map.move_fighter(self, position)
             self.battle.log(f'{self.name} moves to {position} with terrain cost {terrain_cost}')
-
-    def equip_ranged_weapon(self, weapon):
-        self.ranged_weapon = weapon
-
-    def equip_wielded_weapon(self, weapon):
-        if isinstance(weapon, ThrownWeapon):
-            self.wielded_weapon = weapon
-
-    def throw_weapon(self, target):
-        if isinstance(self.wielded_weapon, ThrownWeapon):
-            distance = self.battle.map.calculate_distance(self.position, target.position)
-            if distance <= self.wielded_weapon.damage:  # Assuming the range is tied to damage for simplicity
-                self.battle.log(f'{self.name} throws {self.wielded_weapon.name} at {target.name} for {self.wielded_weapon.damage} damage')
-                target.take_damage(self.wielded_weapon.damage, self)
-                self.wielded_weapon = None  # Weapon is used up
-
-    def attack_with_ranged_weapon(self, target):
-        if self.ranged_weapon and self.ranged_weapon.ammunition:
-            if self.ranged_weapon.fire(self, target, self.battle.map):
-                self.battle.log(f'{self.name} hits {target.name} with {self.ranged_weapon.name} for {self.ranged_weapon.damage} damage')
-            else:
-                self.battle.log(f'{self.name} misses {target.name} with {self.ranged_weapon.name}')

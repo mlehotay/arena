@@ -1,7 +1,7 @@
 # arena.py
 from battle import Battle
-from ai import GreatestThreatAI, LowestHealthAI, DefensiveAI
 from fighter import Fighter
+from ai import RandomAttackAI
 
 VERSION = '0.6'
 
@@ -33,10 +33,15 @@ class Game:
     def run(self):
         print('Arena version ' + VERSION)
 
+        #roles = [
+        #    {'name': 'Glenda', 'faction': 'Red', 'level': 6, 'class': Fighter, 'weapon': 'long sword', 'armor': 'chain mail', 'shield': None, 'ai': GreatestThreatAI()},
+        #    {'name': 'Hiro', 'faction': 'Blue', 'level': 3, 'class': Fighter, 'weapon': 'two-handed sword', 'armor': 'leather armor', 'shield': None, 'ai': LowestHealthAI()},
+        #    {'name': 'Alice', 'faction': 'Blue', 'level': 4, 'class': Fighter, 'weapon': 'trident', 'armor': 'ring mail', 'shield': 'small shield', 'ai': DefensiveAI()},
+        #]
+
         roles = [
-            {'name': 'Glenda', 'faction': 'Red', 'level': 6, 'class': Fighter, 'weapon': 'long sword', 'armor': 'chain mail', 'shield': None, 'ai': GreatestThreatAI},
-            {'name': 'Hiro', 'faction': 'Blue', 'level': 3, 'class': Fighter, 'weapon': 'two-handed sword', 'armor': 'leather armor', 'shield': None, 'ai': LowestHealthAI},
-            {'name': 'Alice', 'faction': 'Blue', 'level': 4, 'class': Fighter, 'weapon': 'trident', 'armor': 'ring mail', 'shield': 'small shield', 'ai': DefensiveAI},
+            {'class': Fighter, 'name': 'Warrior', 'level': 1, 'ai': RandomAttackAI(), 'faction': 'Faction1', 'weapon': 'axe', 'armor': 'chain mail', 'shield': 'small shield'},
+            {'class': Fighter, 'name': 'Archer', 'level': 1, 'ai': RandomAttackAI(), 'faction': 'Faction2', 'weapon': 'bow', 'armor': 'ring mail', 'shield': None}
         ]
 
         battle = Arena(roles, iterations=1, verbose=True)
