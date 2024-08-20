@@ -1,4 +1,3 @@
-# fighter.py
 import random
 from map import *
 from buff import *
@@ -41,7 +40,7 @@ class Fighter:
         self.weapon = create_weapon(weapon)
         self.armor = armor
         self.shield = shield
-        self.armor_class = 10 - armor_list[self.armor] - shield_list.get(self.shield, 0)
+        self.armor_class = 10 - armor_list.get(self.armor, 0) - shield_list.get(self.shield, 0)
         self.battle = None
         self.ai = ai
         self.buffs = []
@@ -49,8 +48,9 @@ class Fighter:
         self.damage_bonus = 0
 
     def __repr__(self):
-        ai_name = self.ai.__name__ if hasattr(self.ai, '__name__') else str(self.ai)
-        return f'{self.name} ({self.health}/{self.max_health}) [Level {self.level} {self.__class__.__name__},  {ai_name}, {self.weapon}, {self.armor}, {self.faction}]'
+        ai_name = self.ai.__class__.__name__ if hasattr(self.ai, '__class__') else str(self.ai)
+        weapon_name = self.weapon.name if self.weapon else 'None'
+        return f'{self.name} ({self.health}/{self.max_health}) [Level {self.level} {self.__class__.__name__}, {ai_name}, {weapon_name}, {self.armor}, {self.faction}]'
 
     def is_alive(self):
         return self.health > 0
@@ -69,12 +69,14 @@ class Fighter:
         self.ai.take_turn(self)
 
     def attack(self, opponent):
-        # Check if the opponent is present and not dead
         if opponent is None or opponent.health <= 0:
             self.battle.log(f'{self.name} cannot attack because the opponent is not valid or is already dead.')
             return
 
-        # Check if target is within range
+        if self.weapon is None:
+            self.battle.log(f'{self.name} has no weapon to attack with.')
+            return
+
         if not self.battle.map.is_within_range(self.position, opponent.position, self.weapon.range):
             self.battle.log(f'{self.name} cannot attack {opponent.name} because they are out of range.')
             return
@@ -83,10 +85,12 @@ class Fighter:
         to_hit_target = 22 - opponent.armor_class - self.level
 
         if attack_roll >= to_hit_target:
-            damage_dice, damage_size, bonus_damage, _ = weapon_list[self.weapon.name]
-            damage = roll(self.weapon.dice, self.weapon.sides) + self.weapon.addend + self.damage_bonus
+            damage_dice = self.weapon.dice
+            damage_size = self.weapon.sides
+            bonus_damage = self.weapon.addend
+            damage = roll(damage_dice, damage_size) + bonus_damage + self.damage_bonus
             opponent.take_damage(damage, self)
-            # self.battle.log(f'{self.name} attacks {opponent.name} with {self.weapon.name} for {damage} damage!')
+            self.battle.log(f'{self.name} attacks {opponent.name} with {self.weapon.name} for {damage} damage!')
         else:
             self.battle.log(f'{self.name} misses {opponent.name}')
 
@@ -108,18 +112,15 @@ class Fighter:
         self.battle = None
 
     def take_defensive_action(self):
-        # Check if the 'Shield Wall' buff is already active or on cooldown
         shield_wall_buff_active = any(buff.name == 'Shield Wall' and buff.remaining_cooldown == 0 for buff in self.buffs)
         if self.shield and not shield_wall_buff_active:
             self.apply_buff(BuffCreator.create_shield_wall())
         else:
-            # Only apply 'Defensive Stance' if it is not already active
             defensive_stance_buff_active = any(buff.name == 'Defensive Stance' and buff.remaining_cooldown == 0 for buff in self.buffs)
             if not defensive_stance_buff_active:
                 self.apply_buff(BuffCreator.create_defensive_stance())
 
     def apply_buff(self, buff):
-        # Check if the buff is already applied or in cooldown
         for active_buff in self.buffs:
             if active_buff.name == buff.name and (active_buff.remaining_duration > 0 or active_buff.remaining_cooldown > 0):
                 self.battle.log(f'{self.name} already has buff: {buff.name} with remaining duration: {active_buff.remaining_duration} or cooldown: {active_buff.remaining_cooldown}')

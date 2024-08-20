@@ -69,7 +69,7 @@ class GreatestThreatAI(BaseAI):
         return None
 
     def calculate_threat(self, opponent):
-        if opponent.weapon.name in weapon_list:
+        if opponent.weapon and opponent.weapon.name in weapon_list:
             dice, sides, addend, range = weapon_list[opponent.weapon.name]
             average_roll = dice * (1 + sides) / 2
             return average_roll + addend + opponent.damage_bonus
