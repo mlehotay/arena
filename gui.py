@@ -8,23 +8,25 @@ class RoguelikeGUI:
         self.root = root
         self.root.title("Roguelike Game (Map)")
 
-        # Add border width of 1 tile around the map
-        self.border_width = 1
-        self.map_width = map_width + 2 * self.border_width
-        self.map_height = map_height + 2 * self.border_width
+        # Map dimensions
+        self.map_width = map_width
+        self.map_height = map_height
 
         # Create frames
         self.map_frame = tk.Frame(root)
-        self.map_frame.grid(row=0, column=0)
+        self.map_frame.grid(row=0, column=0, sticky="nsew")
+
+        self.info_frame = tk.Frame(root)
+        self.info_frame.grid(row=0, column=1, sticky="ns")
 
         self.status_frame = tk.Frame(root)
-        self.status_frame.grid(row=1, column=0, sticky="w")
+        self.status_frame.grid(row=1, column=0, columnspan=2, sticky="ew")
 
-        self.inventory_frame = tk.Frame(root)
-        self.inventory_frame.grid(row=0, column=1, sticky="n")
-
-        self.log_frame = tk.Frame(root)
-        self.log_frame.grid(row=1, column=1, sticky="w")
+        # Configure grid weights
+        root.grid_rowconfigure(0, weight=1)
+        root.grid_rowconfigure(1, weight=0)
+        root.grid_columnconfigure(0, weight=1)
+        root.grid_columnconfigure(1, weight=0)
 
         # Map type and orientation
         self.hex_orientation = hex_orientation
@@ -38,32 +40,30 @@ class RoguelikeGUI:
 
         # Adjust canvas size to fit the grid without gaps
         if self.map_type == 'hex':
-            canvas_width = self.map_width * self.hex_horiz + self.hex_radius
-            canvas_height = self.map_height * self.hex_vert + self.hex_radius
+            canvas_width = (self.map_width + 1) * self.hex_horiz
+            canvas_height = (self.map_height + 1) * self.hex_vert
         elif self.map_type == 'square':
-            canvas_width = self.map_width * self.square_size
-            canvas_height = self.map_height * self.square_size
+            canvas_width = (self.map_width + 1) * self.square_size
+            canvas_height = (self.map_height + 1) * self.square_size
 
         self.map_canvas = tk.Canvas(self.map_frame, bg="white", width=canvas_width, height=canvas_height)
-        self.map_canvas.pack()
+        self.map_canvas.pack(expand=True, fill=tk.BOTH)
 
-        # Example status labels
+        # Calculate centering offsets
+        self.calculate_centering_offsets(canvas_width, canvas_height)
+
+        # Info frame content
+        self.info_text = tk.Text(self.info_frame, height=20, width=30, state="disabled")
+        self.info_text.pack(expand=True, fill=tk.BOTH)
+
+        # Status frame content
         self.health_label = tk.Label(self.status_frame, text="Health: 100")
-        self.health_label.pack(anchor="w")
+        self.health_label.pack(side="left", anchor="w")
 
         self.strength_label = tk.Label(self.status_frame, text="Strength: 10")
-        self.strength_label.pack(anchor="w")
-
-        # Inventory listbox
-        self.inventory_listbox = tk.Listbox(self.inventory_frame)
-        self.inventory_listbox.pack()
-
-        # Message log
-        self.log_text = tk.Text(self.log_frame, height=10, state="disabled")
-        self.log_text.pack()
+        self.strength_label.pack(side="left", anchor="w")
 
         # Initialize the map and battle
-        self.game_map = Map(map_width, map_height, map_type=self.map_type)
         self.battle = Battle(
             title="Test Battle",
             roles=[{
@@ -84,6 +84,23 @@ class RoguelikeGUI:
 
         # Bind keys
         self.root.bind("<Key>", self.handle_keypress)
+
+    def calculate_centering_offsets(self, canvas_width, canvas_height):
+        """Calculate the X and Y offsets to center the map on the canvas."""
+        if self.map_type == 'hex':
+            if self.hex_orientation == "pointy-top":
+                map_pixel_width = self.map_width * self.hex_horiz + self.hex_horiz / 2
+                map_pixel_height = (self.map_height - 1) * self.hex_vert + self.hex_height
+            elif self.hex_orientation == "flat-top":
+                map_pixel_width = (self.map_width - 1) * self.hex_horiz + self.hex_width
+                map_pixel_height = self.map_height * self.hex_vert + self.hex_vert / 2
+            self.offset_x = (canvas_width - map_pixel_width) / 2 + self.hex_horiz / 2
+            self.offset_y = (canvas_height - map_pixel_height) / 2 + self.hex_vert / 2
+        elif self.map_type == 'square':
+            map_pixel_width = self.map_width * self.square_size
+            map_pixel_height = self.map_height * self.square_size
+            self.offset_x = (canvas_width - map_pixel_width) / 2
+            self.offset_y = (canvas_height - map_pixel_height) / 2
 
     def _initialize_hex_parameters(self):
         """Initialize parameters for hex maps."""
@@ -117,7 +134,7 @@ class RoguelikeGUI:
         elif self.map_type == 'square':
             x = self.square_size * q
             y = self.square_size * r
-        return x, y
+        return x + self.offset_x, y + self.offset_y  # Apply offsets to center the map
 
     def draw_hex(self, x, y, color, draw_outline=True):
         """Draw a single hexagon or square on the canvas."""
@@ -143,30 +160,19 @@ class RoguelikeGUI:
         """Draw the map on the canvas."""
         self.map_canvas.delete("all")
 
-        # Draw the border area with background color
+        # Draw the tiles
         for x in range(self.map_width):
             for y in range(self.map_height):
                 pixel_x, pixel_y = self.hex_to_pixel(x, y)
-                if (x < self.border_width or x >= self.map_width - self.border_width or
-                        y < self.border_width or y >= self.map_height - self.border_width):
-                    if self.map_type == 'hex':
-                        self.draw_hex(pixel_x, pixel_y, "white", draw_outline=False)
-                    elif self.map_type == 'square':
-                        # Skip drawing gridlines in the margin
-                        if (x < self.border_width or x >= self.map_width - self.border_width or
-                                y < self.border_width or y >= self.map_height - self.border_width):
-                            continue
-                        self.draw_hex(pixel_x, pixel_y, "white", draw_outline=False)
-                else:
-                    pos = self.game_map.get_position(x - self.border_width, y - self.border_width)
-                    color = self.get_color_by_terrain(pos.terrain)
-                    self.draw_hex(pixel_x, pixel_y, color)
-                    if pos.fighter:
-                        self.map_canvas.create_text(
-                            pixel_x + self.square_size / 2 if self.map_type == 'square' else pixel_x,
-                            pixel_y + self.square_size / 2 if self.map_type == 'square' else pixel_y,
-                            text=pos.fighter.name[0], fill="white"
-                        )
+                pos = self.battle.map.get_position(x, y)
+                color = self.get_color_by_terrain(pos.terrain)
+                self.draw_hex(pixel_x, pixel_y, color)
+                if pos.fighter:
+                    self.map_canvas.create_text(
+                        pixel_x + self.square_size / 2 if self.map_type == 'square' else pixel_x,
+                        pixel_y + self.square_size / 2 if self.map_type == 'square' else pixel_y,
+                        text=pos.fighter.name[0], fill="white"
+                    )
 
     def get_color_by_terrain(self, terrain):
         """Return the color associated with a terrain type."""
@@ -197,33 +203,33 @@ class RoguelikeGUI:
         """Move the player in the specified direction."""
         new_x = self.battle.fighters[0].position.x + direction[0]
         new_y = self.battle.fighters[0].position.y + direction[1]
-        new_pos = self.game_map.get_position(new_x - self.border_width, new_y - self.border_width)
+        new_pos = self.battle.map.get_position(new_x, new_y)
 
-        if new_pos and not self.game_map.is_position_occupied(new_pos) and new_pos.terrain != Terrain.WATER:
-            self.game_map.move_fighter(self.battle.fighters[0], new_pos)
+        if new_pos and not self.battle.map.is_position_occupied(new_pos) and new_pos.terrain != Terrain.WATER:
+            self.battle.map.move_fighter(self.battle.fighters[0], new_pos)
             self.battle.fighters[0].position.x = new_x
             self.battle.fighters[0].position.y = new_y
             self.draw_map()  # Redraw the entire map
-            self.log_message(f"Player moved to ({new_x - self.border_width}, {new_y - self.border_width})")
+            self.log_message(f"Player moved to ({new_x}, {new_y})")
 
     def log_message(self, message):
         """Log a message in the log text area."""
-        self.log_text.config(state="normal")
-        self.log_text.insert(tk.END, message + "\n")
-        self.log_text.config(state="disabled")
-        self.log_text.see(tk.END)  # Scroll to the end
+        self.info_text.config(state="normal")
+        self.info_text.insert(tk.END, message + "\n")
+        self.info_text.config(state="disabled")
+        self.info_text.see(tk.END)  # Scroll to the end
 
         # Limit the number of lines in the log to the last 10
         self._limit_log_lines(10)  # Change this number to the desired number of visible lines
 
     def _limit_log_lines(self, max_lines):
         """Remove old lines to keep only the most recent ones."""
-        self.log_text.update_idletasks()  # Ensure the text widget has been updated
-        num_lines = int(self.log_text.index('end-1c').split('.')[0])
+        self.info_text.update_idletasks()  # Ensure the text widget has been updated
+        num_lines = int(self.info_text.index('end-1c').split('.')[0])
         if num_lines > max_lines:
-            self.log_text.delete('1.0', f'{num_lines - max_lines}.0')
+            self.info_text.delete('1.0', f'{num_lines - max_lines}.0')
 
 if __name__ == "__main__":
     root = tk.Tk()
-    gui = RoguelikeGUI(root, map_width=20, map_height=20, hex_orientation="pointy-top")
+    gui = RoguelikeGUI(root, map_width=10, map_height=10, hex_orientation="flat-top") # "flat-top", "pointy-top", or None
     root.mainloop()
